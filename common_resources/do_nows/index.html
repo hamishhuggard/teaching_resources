@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Lesson Slide</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                enableMenu: false
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #ffffff;
+            color: #1a1a1a;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f3f4f6;
+            padding: 1.5rem 5vw;
+            color: #d1d5db; /* Light grey for the whole header */
+            font-weight: 600;
+            font-size: 1.5rem;
+        }
+
+        #display-date, #clock {
+            color: #d1d5db;
+        }
+
+        /* Subtle Dropdown Styling - Matches Date/Time exactly */
+        .class-selector-container {
+            display: flex;
+            align-items: center;
+        }
+
+        #class-dropdown {
+            background: transparent;
+            border: none;
+            color: #d1d5db; /* Matches header text color */
+            font-family: inherit;
+            font-size: 1.5rem; /* Matches header font size */
+            font-weight: 600; /* Matches header weight */
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            text-align: center;
+            transition: color 0.2s;
+        }
+
+        #class-dropdown:hover {
+            color: #9ca3af; /* Slight darken on hover to show interactivity */
+        }
+
+        .main-container {
+            flex: 1;
+            padding: 6vh 5vw;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+
+        .main-container.loaded { opacity: 1; }
+
+        .topic-label {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: #d1d5db;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .topic-title {
+            font-size: clamp(2.5rem, 6vw, 5.5rem);
+            line-height: 1.1;
+            font-weight: 800;
+            margin-bottom: 6vh;
+            color: #111827;
+            white-space: nowrap;
+        }
+
+        .objective-section { width: 100%; display: block; }
+
+        .objective-header {
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #2563eb;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .objective-list { list-style-type: disc; padding-left: 2rem; display: block; }
+
+        .objective-item {
+            font-size: clamp(1.8rem, 4vh, 2.8rem);
+            font-weight: 700;
+            line-height: 1.5;
+            color: #111827;
+            margin-bottom: 1rem;
+        }
+
+        .objective-item::marker { color: #2563eb; }
+
+        .footer {
+            margin-top: auto;
+            margin-bottom: 2vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+
+        .footer-item {
+            padding: 2rem 2.5rem;
+            border-radius: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .workbook-box { background-color: #f0fdf4; border: 2px solid #dcfce7; }
+        .homework-box { background-color: #fef2f2; border: 2px solid #fee2e2; }
+
+        .footer-label {
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #9ca3af;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .workbook-value { font-size: 3.5rem; font-weight: 800; color: #166534; }
+        .homework-value { font-size: 2.25rem; font-weight: 800; color: #991b1b; }
+
+        #clock { font-variant-numeric: tabular-nums; }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            font-size: 2rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader" class="loading-overlay">Syncing lesson data...</div>
+
+    <div class="header">
+        <div id="display-date">Loading date...</div>
+        
+        <div class="class-selector-container">
+            <select id="class-dropdown">
+                <option value="">Select Class</option>
+            </select>
+        </div>
+
+        <div id="clock">00:00:00</div>
+    </div>
+
+    <div id="content" class="main-container">
+        <div class="content-area">
+            <div class="topic-label">Today's Topic</div>
+            <h1 id="topic" class="topic-title">---</h1>
+            
+            <div class="objective-section">
+                <span class="objective-header">Learning Objectives</span>
+                <ul id="objectives" class="objective-list">
+                    <!-- Objectives injected here -->
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-item workbook-box">
+                <div class="footer-label">Workbook Pages</div>
+                <div id="workbook" class="workbook-value">---</div>
+            </div>
+            <div class="footer-item homework-box">
+                <div class="footer-label">Homework</div>
+                <div id="homework" class="homework-value">---</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/12d1GQCwtziU9KT4xy7TSlIYzkgVZlov8TGMvgp4gmQ4/export?format=csv&gid=0&single=true';
+        let lessonRowsForToday = [];
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+            document.getElementById('clock').textContent = timeStr;
+        }
+
+        function getTodayString() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function getDayOfWeek(dateStr) {
+            const [d, m, y] = dateStr.split('/');
+            const date = new Date(y, m - 1, d);
+            return date.toLocaleDateString('en-GB', { weekday: 'long' });
+        }
+
+        async function fetchLessonData() {
+            try {
+                const response = await fetch(CSV_URL);
+                const csvText = await response.text();
+                
+                const allRows = csvText.split(/\r?\n/).map(row => {
+                    return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, '').trim());
+                });
+
+                const today = getTodayString();
+                const dayName = getDayOfWeek(today);
+                document.getElementById('display-date').textContent = `${dayName}, ${today}`;
+
+                lessonRowsForToday = allRows.filter(r => r[0] === today);
+
+                const dropdown = document.getElementById('class-dropdown');
+                dropdown.innerHTML = '';
+
+                if (lessonRowsForToday.length > 0) {
+                    lessonRowsForToday.forEach((row, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = row[1] || `Class ${index + 1}`;
+                        dropdown.appendChild(option);
+                    });
+
+                    renderData(lessonRowsForToday[0]);
+                } else {
+                    document.getElementById('topic').textContent = "No lesson scheduled for today";
+                    document.getElementById('loader').textContent = "Date not found in spreadsheet.";
+                    const option = document.createElement('option');
+                    option.textContent = "No Classes";
+                    dropdown.appendChild(option);
+                }
+
+                dropdown.addEventListener('change', (e) => {
+                    const selectedIndex = e.target.value;
+                    if (selectedIndex !== "") {
+                        renderData(lessonRowsForToday[selectedIndex]);
+                    }
+                });
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loader').textContent = "Error loading spreadsheet.";
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('content').classList.add('loaded');
+            }
+        }
+
+        function renderData(row) {
+            const [date, className, objective, topic, pages, homework] = row;
+
+            document.getElementById('topic').textContent = topic || "N/A";
+            document.getElementById('workbook').textContent = pages || "N/A";
+            document.getElementById('homework').textContent = homework || "N/A";
+
+            const objList = document.getElementById('objectives');
+            objList.innerHTML = '';
+            
+            const items = (objective || "N/A").split(/\r?\n/).filter(i => i.trim() !== "");
+            items.forEach(text => {
+                const li = document.createElement('li');
+                li.className = 'objective-item';
+                li.textContent = text;
+                objList.appendChild(li);
+            });
+
+            if (window.MathJax && window.MathJax.typeset) {
+                window.MathJax.typeset();
+            }
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+        fetchLessonData();
+
+        window.onscroll = function () { window.scrollTo(0, 0); };
+    </script>
+</body>
+</html>
