@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuit Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: white; }
+        svg { width: 100vw; height: 100%; }
+        
+        .schematic-line { stroke: black; stroke-width: 5; fill: none; stroke-linecap: round; }
+        .schematic-node { fill: black; stroke: black; stroke-width: 2; }
+        .interactive-switch { cursor: pointer; }
+        
+        .bulb-glow { fill: white; transition: fill 0.2s; }
+        .bulb-active .bulb-glow { fill: #fef08a; }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen p-6 md:p-8 bg-white select-none box-border justify-between">
+
+    <!-- Instructions & Task Box Area -->
+    <div class="w-full max-w-4xl mx-auto flex flex-col gap-2">
+        <!-- Grey instruction sub-header -->
+        <div class="text-left">
+            <p class="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-wider">
+                Copy the circuit, write the question, write your prediction, then do the experiment and write down the result.
+            </p>
+        </div>
+        <!-- Big clear left-aligned instruction textbox -->
+        <div id="instruction-box" class="text-left border-4 border-black p-5 md:p-6 rounded-xl bg-neutral-50 shadow-sm">
+            <p id="instruction-text" class="text-lg md:text-2xl font-medium leading-relaxed text-black"></p>
+        </div>
+    </div>
+
+    <!-- Circuit display area -->
+    <div class="flex-grow flex items-center justify-center relative w-full overflow-hidden my-4">
+        <svg id="canvas" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet" class="max-h-[65vh]">
+            <defs>
+                <g id="sym-bulb">
+                    <circle cx="0" cy="0" r="22" class="bulb-glow stroke-black stroke-[5]" />
+                    <line x1="-15" y1="-15" x2="15" y2="15" stroke="black" stroke-width="5" />
+                    <line x1="-15" y1="15" x2="15" y2="-15" stroke="black" stroke-width="5" />
+                </g>
+                <g id="sym-battery">
+                    <!-- White mask line underneath to cover the wire crossing behind the battery -->
+                    <line x1="-13" y1="0" x2="16" y2="0" stroke="white" stroke-width="8" />
+                    
+                    <!-- Internal wire segment connecting the negative of Cell 1 to the positive of Cell 2 -->
+                    <line x1="-3" y1="0" x2="6" y2="0" stroke="black" stroke-width="5" stroke-linecap="round" />
+                    
+                    <!-- Battery Plates -->
+                    <line x1="-12" y1="-22" x2="-12" y2="22" stroke="black" stroke-width="5" />
+                    <line x1="-3" y1="-12" x2="-3" y2="12" stroke="black" stroke-width="9" />
+                    <line x1="6" y1="-22" x2="6" y2="22" stroke="black" stroke-width="5" />
+                    <line x1="15" y1="-12" x2="15" y2="12" stroke="black" stroke-width="9" />
+                </g>
+                <g id="sym-ammeter">
+                    <circle cx="0" cy="0" r="22" stroke="black" stroke-width="5" fill="white" />
+                    <text x="0" y="7" font-family="sans-serif" font-weight="900" font-size="22" fill="black" text-anchor="middle">A</text>
+                </g>
+                <g id="sym-voltmeter">
+                    <circle cx="0" cy="0" r="22" stroke="black" stroke-width="5" fill="white" />
+                    <text x="0" y="7" font-family="sans-serif" font-weight="900" font-size="22" fill="black" text-anchor="middle">V</text>
+                </g>
+            </defs>
+            <g id="circuit-group"></g>
+        </svg>
+    </div>
+
+    <script>
+        const circuits = [
+            { 
+                text: "<b>Circuit 1</b></br>Predict what happens when the switch is open and when it's closed.</br>What actually happens?",
+                wires: [[[200,150],[600,150]],[[600,150],[600,350]],[[600,350],[200,350]],[[200,350],[200,150]]], 
+                components: [{id:"bat1",type:"battery",x:400,y:150},{id:"sw1",type:"switch",x:600,y:250,rot:90},{id:"bulb1",type:"bulb",x:400,y:350}], 
+                switches:{sw1:false}, 
+                calc:(s)=>({bulb1:s.sw1}) 
+            },
+            { 
+                text: "<b>Circuit 2</b> Which bulbs will turn off when the switch is open?",
+                wires: [[[200,150],[600,150]],[[600,150],[600,350]],[[600,350],[200,350]],[[200,350],[200,150]]], 
+                components: [{id:"bat1",type:"battery",x:400,y:150},{id:"sw1",type:"switch",x:600,y:250,rot:90},{id:"bulb1",type:"bulb",x:300,y:350},{id:"bulb2",type:"bulb",x:500,y:350}], 
+                switches:{sw1:false}, 
+                calc:(s)=>({bulb1:s.sw1,bulb2:s.sw1}) 
+            },
+            { 
+                text: "<b>Circuit 3</b> Which bulbs will turn off when the switch is open?",
+                wires: [[[200,150],[600,150]],[[200,150],[200,350]],[[600,150],[600,350]],[[200,250],[600,250]],[[200,350],[600,350]]], 
+                components: [{id:"bat1",type:"battery",x:450,y:150},{id:"sw1",type:"switch",x:280,y:150},{id:"bulb1",type:"bulb",x:400,y:250},{id:"bulb2",type:"bulb",x:400,y:350},{id:"junc1",type:"junction",x:200,y:250},{id:"junc2",type:"junction",x:600,y:250}], 
+                switches:{sw1:false}, 
+                calc:(s)=>({bulb1:s.sw1,bulb2:s.sw1}) 
+            },
+            { 
+                text: "<b>Circuit 4</b> Which bulbs will turn off when the switch is open?",
+                wires: [[[200,150],[600,150]],[[200,150],[200,350]],[[600,150],[600,350]],[[200,250],[600,250]],[[200,350],[600,350]]], 
+                components: [{id:"bat1",type:"battery",x:400,y:150},{id:"sw1",type:"switch",x:300,y:250},{id:"bulb1",type:"bulb",x:450,y:250},{id:"bulb2",type:"bulb",x:400,y:350},{id:"junc1",type:"junction",x:200,y:250},{id:"junc2",type:"junction",x:600,y:250}], 
+                switches:{sw1:false}, 
+                calc:(s)=>({bulb1:s.sw1,bulb2:true}) 
+            },
+            { 
+                text: "<b>Circuit 5</b> Which bulbs will turn off when the switch is open?",
+                wires: [[[200,150],[600,150]],[[200,150],[200,350]],[[600,150],[600,350]],[[200,250],[600,250]],[[200,350],[600,350]]], 
+                components: [{id:"bat1",type:"battery",x:400,y:150},{id:"bulb1",type:"bulb",x:400,y:250},{id:"sw1",type:"switch",x:300,y:350},{id:"bulb2",type:"bulb",x:450,y:350},{id:"junc1",type:"junction",x:200,y:250},{id:"junc2",type:"junction",x:600,y:250}], 
+                switches:{sw1:false}, 
+                calc:(s)=>({bulb1:true,bulb2:s.sw1}) 
+            },
+            { 
+                text: "<b>Circuit 6</b> What current does the ammeter read?",
+                wires: [[[200,150],[600,150]],[[600,150],[600,350]],[[600,350],[200,350]],[[200,350],[200,150]]], 
+                components: [{id:"bat1",type:"battery",x:400,y:150},{id:"am1",type:"ammeter",x:200,y:250},{id:"bulb1",type:"bulb",x:300,y:350},{id:"bulb2",type:"bulb",x:500,y:350}], 
+                switches:{}, 
+                calc:()=>({bulb1:true,bulb2:true}) 
+            },
+            { 
+                text: "<b>Circuit 7</b> Predict what current the ammeter will show at these different positions? Then actually construct the circuit and measure it.",
+                wires: [
+                    // Left circuit loops
+                    [[100,150],[340,150]],[[340,150],[340,350]],[[340,350],[100,350]],[[100,350],[100,150]],
+                    // Right circuit loops
+                    [[460,150],[700,150]],[[700,150],[700,350]],[[700,350],[460,350]],[[460,350],[460,150]]
+                ], 
+                components: [
+                    // Left circuit
+                    {id:"bat_l",type:"battery",x:220,y:150},
+                    {id:"bulb_l1",type:"bulb",x:150,y:350},
+                    {id:"am_l",type:"ammeter",x:220,y:350},
+                    {id:"bulb_l2",type:"bulb",x:290,y:350},
+                    // Right circuit
+                    {id:"bat_r",type:"battery",x:580,y:150},
+                    {id:"bulb_r1",type:"bulb",x:510,y:350},
+                    {id:"bulb_r2",type:"bulb",x:650,y:350},
+                    {id:"am_r",type:"ammeter",x:700,y:250}
+                ], 
+                switches:{}, 
+                calc:()=>({bulb_l1:true,bulb_l2:true,bulb_r1:true,bulb_r2:true}) 
+            },
+            { 
+                text: "<b>Circuit 8</b> What current does the ammeter read?",
+                wires: [[[200,150],[600,150]],[[200,150],[200,350]],[[600,150],[600,350]],[[200,250],[600,250]],[[200,350],[600,350]]], 
+                components: [{id:"bat1",type:"battery",x:450,y:150},{id:"am1",type:"ammeter",x:280,y:150},{id:"bulb1",type:"bulb",x:400,y:250},{id:"bulb2",type:"bulb",x:400,y:350},{id:"junc1",type:"junction",x:200,y:250},{id:"junc2",type:"junction",x:600,y:250}], 
+                switches:{}, 
+                calc:()=>({bulb1:true,bulb2:true}) 
+            },
+            { 
+                text: "<b>Circuit 9</b> Predict what current the ammeter will show at these different positions? Then actually construct the circuit and measure it.",
+                wires: [
+                    // Left parallel branches
+                    [[100,150],[340,150]],[[100,150],[100,350]],[[340,150],[340,350]],[[100,250],[340,250]],[[100,350],[340,350]],
+                    // Right parallel branches
+                    [[460,150],[700,150]],[[460,150],[460,350]],[[700,150],[700,350]],[[460,250],[700,250]],[[460,350],[700,350]]
+                ], 
+                components: [
+                    // Left circuit (ammeter on top parallel branch)
+                    {id:"bat_l",type:"battery",x:220,y:150},
+                    {id:"junc_l1",type:"junction",x:100,y:250},
+                    {id:"junc_l2",type:"junction",x:340,y:250},
+                    {id:"am_l",type:"ammeter",x:180,y:250},
+                    {id:"bulb_l1",type:"bulb",x:260,y:250},
+                    {id:"bulb_l2",type:"bulb",x:220,y:350},
+                    
+                    // Right circuit (ammeter on bottom parallel branch)
+                    {id:"bat_r",type:"battery",x:580,y:150},
+                    {id:"junc_r1",type:"junction",x:460,y:250},
+                    {id:"junc_r2",type:"junction",x:700,y:250},
+                    {id:"bulb_r1",type:"bulb",x:580,y:250},
+                    {id:"am_r",type:"ammeter",x:540,y:350},
+                    {id:"bulb_r2",type:"bulb",x:620,y:350}
+                ], 
+                switches:{}, 
+                calc:()=>({bulb_l1:true,bulb_l2:true,bulb_r1:true,bulb_r2:true}) 
+            }
+        ];
+
+        let idx = 0;
+        
+        function render() {
+            const circuit = circuits[idx];
+            
+            // Set big top instruction text
+            document.getElementById("instruction-text").innerHTML = circuit.text;
+            
+            const group = document.getElementById("circuit-group");
+            group.innerHTML = "";
+            const res = circuit.calc(circuit.switches);
+
+            circuit.wires.forEach((pts) => {
+                const path = pts.map((p, j) => `${j===0?'M':'L'} ${p[0]} ${p[1]}`).join(' ');
+                const base = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                base.setAttribute("d", path);
+                base.setAttribute("class", "schematic-line");
+                group.appendChild(base);
+            });
+
+            circuit.components.forEach(comp => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("transform", `translate(${comp.x}, ${comp.y}) rotate(${comp.rot || 0})`);
+                
+                if (comp.type === "bulb") {
+                    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                    use.setAttribute("href", "#sym-bulb");
+                    g.appendChild(use);
+                    if (res[comp.id]) g.classList.add("bulb-active");
+                } else if (comp.type === "battery") {
+                    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                    use.setAttribute("href", "#sym-battery");
+                    g.appendChild(use);
+                } else if (comp.type === "switch") {
+                    g.classList.add("interactive-switch");
+                    
+                    // White mask line to hide continuous wire passing underneath
+                    const mask = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    mask.setAttribute("stroke", "white");
+                    mask.setAttribute("stroke-width", "8");
+                    mask.setAttribute("x1", "-22");
+                    mask.setAttribute("y1", "0");
+                    mask.setAttribute("x2", "22");
+                    mask.setAttribute("y2", "0");
+                    g.appendChild(mask);
+
+                    const lever = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    lever.setAttribute("stroke", "black");
+                    lever.setAttribute("stroke-width", "5");
+                    lever.setAttribute("x1", "-20");
+                    lever.setAttribute("y1", "0");
+                    lever.setAttribute("x2", circuit.switches[comp.id] ? "20" : "15");
+                    lever.setAttribute("y2", circuit.switches[comp.id] ? "0" : "-18");
+                    g.append(lever, ...[[-20,0],[20,0]].map(p => {
+                        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        c.setAttribute("cx", p[0]); c.setAttribute("cy", p[1]); c.setAttribute("r", "5");
+                        c.setAttribute("class", "schematic-node");
+                        return c;
+                    }));
+                    g.onclick = (e) => { e.stopPropagation(); circuit.switches[comp.id] = !circuit.switches[comp.id]; render(); };
+                } else if (comp.type === "junction") {
+                    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    c.setAttribute("cx", "0");
+                    c.setAttribute("cy", "0");
+                    c.setAttribute("r", "7");
+                    c.setAttribute("class", "schematic-node");
+                    g.appendChild(c);
+                } else if (comp.type === "ammeter" || comp.type === "voltmeter") {
+                    // White mask line to hide wire directly passing behind meter center
+                    const mask = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    mask.setAttribute("cx", "0");
+                    mask.setAttribute("cy", "0");
+                    mask.setAttribute("r", "22");
+                    mask.setAttribute("fill", "white");
+                    g.appendChild(mask);
+
+                    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                    use.setAttribute("href", `#sym-${comp.type}`);
+                    g.appendChild(use);
+                } else {
+                    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+                    use.setAttribute("href", `#sym-${comp.type}`);
+                    g.appendChild(use);
+                }
+                group.appendChild(g);
+            });
+        }
+
+        window.onkeydown = (e) => {
+            if (e.key === "ArrowRight" && idx < circuits.length - 1) { idx++; render(); }
+            else if (e.key === "ArrowLeft" && idx > 0) { idx--; render(); }
+        };
+        
+        window.onload = render;
+    </script>
+</body>
+</html>

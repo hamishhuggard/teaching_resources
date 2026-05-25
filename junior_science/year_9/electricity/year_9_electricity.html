@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity & Magnetism Lessons</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Kalam for Handwritten Style, Inter for clean UI elements -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Exact layout targeting ~6 lines max per viewport with a 16vh line spacing */
+        :root {
+            --paper-line-height: 16vh; 
+        }
+        
+        body {
+            font-family: 'doodlefontb';
+            overflow: hidden;
+            background-color: #fafaf6;
+            margin: 0;
+            padding: 0;
+            color: #000000;
+        }
+
+        /* Slide Deck Snap Container */
+        .slides-container {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: 100vh;
+            scroll-behavior: smooth;
+        }
+
+        /* Slide Viewport */
+        .slide {
+            scroll-snap-align: start;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            justify-content: stretch;
+            position: relative;
+            box-sizing: border-box;
+            background-color: #fafaf6;
+        }
+
+        /* Lined Notebook Style Background */
+        .lined-paper {
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.07) 2px, transparent 2px);
+            background-size: 100% var(--paper-line-height);
+            /* Align the lines vertically so baseline characters rest perfectly on them */
+            background-position: 0 calc(var(--paper-line-height) - 2px);
+        }
+
+        /* Notebook red margin line */
+        .lined-paper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: clamp(60px, 16vw, 200px);
+            bottom: 0;
+            width: 3px;
+            background-color: rgba(239, 68, 68, 0.45);
+            z-index: 10;
+        }
+
+        /* Notebook content padding alignment */
+        .notebook-content {
+            padding-left: clamp(85px, 19vw, 240px);
+            padding-right: clamp(30px, 6vw, 120px);
+            padding-top: 0;
+            padding-bottom: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* Single wrapping container block that naturally handles multi-line wraps */
+        .lined-text-block {
+            display: block;
+            width: 100%;
+            font-size: clamp(1.8rem, 4.2vh, 3.8rem);
+            line-height: var(--paper-line-height);
+            color: #000000;
+            padding-top: 0.8vh; /* Shift whole block down to align baselines natively */
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Double height for massive Title slide headers */
+        .handwritten-title {
+            font-size: clamp(2.4rem, 5.5vh, 4.8rem);
+            font-weight: 700;
+            line-height: var(--paper-line-height);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Make underlined words sit cleanly */
+        u {
+            text-decoration: underline;
+            text-underline-offset: 0.5vh;
+        }
+
+        /* Slide Index/Menu Buttons */
+        .menu-btn {
+            width: 100%;
+            text-align: left;
+            transition: transform 0.2s ease;
+            cursor: pointer;
+            color: #000000;
+            background: none;
+            border: none;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+            padding: 0;
+        }
+        .menu-btn:hover {
+            transform: translateX(15px);
+            font-weight: 700;
+        }
+
+        /* Gray text specifically for user input indicator hints */
+        .answer-placeholder {
+            color: #71717a !important; /* Tailwind Zinc-500 */
+        }
+
+        /* Non-lined activity card wrapper (all elements strictly black/white) */
+        .activity-slide {
+            background-color: #fafaf6;
+            color: #000000;
+        }
+
+        /* Hide Scrollbar for Presentation Mode */
+        .slides-container::-webkit-scrollbar {
+            display: none;
+        }
+        .slides-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Clean Minimalist Timer in Top Left Margin */
+        .classroom-timer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: monospace;
+            font-size: clamp(1.2rem, 3vw, 2.2rem);
+            padding: 8px 16px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s ease;
+        }
+        .classroom-timer.timer-paused {
+            background-color: #4b5563; /* Gray background when paused */
+        }
+        .classroom-timer.timer-warning {
+            animation: pulse-red 1s infinite alternate;
+        }
+        @keyframes pulse-red {
+            from { background-color: #000000; }
+            to { background-color: #ef4444; }
+        }
+    </style>
+</head>
+<body class="select-none">
+
+    <!-- Minimal Interactive Presentation Timer (Moved to top-left margin) -->
+    <div id="countdown-timer" class="classroom-timer" title="Click to Pause/Play. Double Click to Reset.">
+        05:00
+    </div>
+
+    <!-- Main Slides Container -->
+    <div id="slides-wrapper" class="slides-container">
+        <!-- Built Dynamically Below -->
+    </div>
+
+    <script>
+        // Curriculum Dataset
+        const lessonsData = [
+            {
+                id: 1,
+                date: "Tuesday, 19 May 2026",
+                title: "Conventional Current & Electron Drift",
+                pages: "Orange Book Pages: 43, 44",
+                doNow: {
+                    questions: [
+                        "Draw the circuit components for: bulb, battery, cell,",
+                        "open switch, closed switch, ammeter, voltmeter."
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Conventional current",
+                        text: "is the flow of electrical charge from the positive terminal to the negative terminal of a power source."
+                    },
+                    {
+                        term: "Electron drift",
+                        text: "is the actual movement of electrons from the negative terminal to the positive terminal of a power source."
+                    },
+                    {
+                        term: "Direction of current",
+                        text: "In physics, for most of the work that involves the direction of current, we are going to use the conventional current direction."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "<span class=\"answer-placeholder\">[Copy the diagram on the board]</span><br>Does this diagram show conventional current or electron drift?<br><span class=\"answer-placeholder\">[write answer here]</span>",
+                        answer: "Conventional current (points from positive to negative terminal)"
+                    },
+                    {
+                        question: "<span class=\"answer-placeholder\">[Copy the diagrams on the board]</span><br>These diagrams show electrons travelling through a wire, but only one of them has conventional current labelled correctly. Circle the correct diagram.",
+                        answer: "Circle the diagram where conventional current runs opposite to electron flow"
+                    }
+                ],
+                activity: {
+                    title: "Activity: The Human Circuit",
+                    description: "Form a physical loop representing a continuous circuit.",
+                    steps: [
+                        "Pass a ball to your left (representing electron drift: negative to positive).",
+                        "Watch the empty space move to your right (representing conventional current).",
+                        "Sketch both opposing directional arrows in your exercise books."
+                    ]
+                },
+                exitTicket: "<span class=\"answer-placeholder\">[Copy the diagrams on the board]</span><br>Label the diagram which shows conventional current and the diagram which shows electron drift<br><span class=\"answer-placeholder\">[write answer here]</span>"
+            },
+            {
+                id: 2,
+                date: "Wednesday, 20 May 2026",
+                title: "Introduction to Static Charge",
+                pages: "Orange Book Pages: 36, 37, 38",
+                doNow: {
+                    questions: [
+                        "Q1) Draw a diagram showing the direction of electron drift",
+                        "Q2) Which has negative charge: protons or electrons?"
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Learning objective",
+                        text: "Investigate static electricity."
+                    },
+                    {
+                        term: "Static electricity",
+                        text: "is an imbalance of electric charges within or on the surface of a material."
+                    },
+                    {
+                        term: "Electric charge",
+                        text: "is a basic property of matter. Charge can be positive (like protons) or negative (like electrons)."
+                    },
+                    {
+                        term: "The Law of Attraction",
+                        text: "Like charges repel and unlike charges attract"
+                    },
+                    {
+                        term: "",
+                        text: "Charging bodies involves the adding or removing of electrons."
+                    },
+                ],
+                quizzes: [
+                    {
+                        question: "True or false: electrons are attracted to one another.",
+                        answer: "Electrons are negatively charged. Like charges repel. Therefore electrons repel one another."
+                    },
+                    {
+                        question: "True or False: you can charge a surface by transfering protons.",
+                        answer: "False. Only negative charges (electrons) are transferred"
+                    }
+                ],
+                activity: {
+                    title: "Experiment: Friction & Attraction",
+                    description: "Verify electrostatic force using plastic rods and paper.",
+                    steps: [
+                        "Rub plastic rulers or polythene rods vigorously with a woollen cloth.",
+                        "Bring the duster close to tiny pieces of paper to watch them jump.",
+                        "Hold the charged rod near a very thin stream of tap water; watch it bend."
+                    ]
+                },
+                exitTicket: "Copy the diagram on the board and add arrows for attraction and repulsion."
+            },
+            {
+                id: 3,
+                date: "Thursday, 21 May 2026",
+                title: "Conductors and Insulators",
+                pages: "Orange Book Pages: 37, 38, 45",
+                doNow: {
+                    questions: [
+                        "Q1) State the law of attraction and repulsion for charges.",
+                        "Q2) True or False: transfering protons can create a charge."
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Learning objective",
+                        text: "Describe the difference between conductors and insulators."
+                    },
+                    {
+                        term: "Conductor (pūkawe hiko)",
+                        text: "is a material through which an electric current can pass."
+                    },
+                    {
+                        term: "Insulator",
+                        text: "is a material that does not allow charge to flow easily."
+                    },
+                    {
+                        term: "Free electrons",
+                        text: "In substances such as metals, electrons can separate from the atoms and move freely. This makes them conductors."
+                    },
+                    {
+                        term: "",
+                        text: "In substances such as plastic, rubber, wood, glass, or ceramic the atoms hold on to their electrons, so charge cannot pass. This makes them insulators."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "Is aluminium a conductor? Why?",
+                        answer: "Aluminium is a conductor. It is a metal so the electrons can move freely from the atoms."
+                    },
+                    {
+                        question: "Do rubber atoms or iron atoms hold more tightly onto their electorns? Why?",
+                        answer: "Rubber. Because rubber is an insulator and the electrons cannnot move freely."
+                    }
+                ],
+                /*
+                activity: {
+                    title: "Experiment 7.2: Conductivity Testing",
+                    description: "Examine everyday materials using a basic loop test configuration.",
+                    steps: [
+                        "Set up a testing loop with a power cell, bulb, and open alligator clips.",
+                        "Connect copper wire, iron, rubber, plastic, and water in the gap.",
+                        "Record which materials complete the path to switch the light bulb on."
+                    ]
+                },
+                */
+                exitTicket: "Why did salt solution conduct electricity while distilled water did not? Refer to charged particles."
+            },
+            {
+                id: 4,
+                date: "Friday, 25 May 2026",
+                title: "Simple Circuit Components & Diagrams",
+                pages: "Orange Book Pages: 37",
+                doNow: {
+                    questions: [
+                        "Q1) What makes metals good conductors of electricity?",
+                        "Q2) Give one example of an excellent electrical insulator."
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Learning objective",
+                        text: "Investigate static electricity."
+                    },
+                    {
+                        term: "Electric circuit",
+                        text: "is a complete conducting pathway from the energy supplier through various components."
+                    },
+                    {
+                        term: "Filament",
+                        text: "The filament of the light bulb changes the electrical energy into light and heat energy."
+                    },
+                    {
+                        term: "Resistor",
+                        text: "is a component that offers resistance to the flow of electrons."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "What component changes electrical energy into light and heat?",
+                        answer: "A light bulb filament (or resistor)"
+                    },
+                    {
+                        question: "What is the standard rule for drawing wires in circuit diagrams?",
+                        answer: "Always use a ruler and draw wires with sharp 90-degree corners"
+                    }
+                ],
+                activity: {
+                    title: "Drawing & Building Challenge",
+                    description: "Learn to translate formal schema into physical setups.",
+                    steps: [
+                        "Examine page 41 symbols (wire, battery, switch, lamp).",
+                        "Using a pencil and ruler, draw a circuit containing a cell, open switch, and two lamps.",
+                        "Collect the physical components and construct the layout exactly as drawn."
+                    ]
+                },
+                exitTicket: "Look at the bad circuit diagram on the board. List two distinct drawing rules it violates."
+            },
+            {
+                id: 5,
+                date: "Friday, 22 May 2026",
+                title: "Series & Parallel Circuits",
+                pages: "Orange Book Pages: 45, 46, 47",
+                doNow: {
+                    questions: [
+                        "Q1) Name as many insulators as you can remember.",
+                        "Q2) Draw the circuit diagram for with one cell and one bulb."
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Series circuit",
+                        text: "In a series circuit, electrons have one path to follow, and they pass through every component."
+                    },
+                    {
+                        term: "Path failure",
+                        text: "If one component stops working, then the whole circuit stops working."
+                    },
+                    {
+                        term: "Current rule",
+                        text: "The current remains constant at all points around a series circuit."
+                    },
+                    {
+                        term: "Parallel circuit",
+                        text: "has two or more pathways for the current to travel through at some point in the circuit."
+                    },
+                    {
+                        term: "Current split",
+                        text: "The current is shared out between the branches."
+                    },
+                    {
+                        term: "Independent paths",
+                        text: "If one component stops working, the other components on other paths will continue to work."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "Draw a circuit diagram with a battery and two bulbs in series.",
+                        answer: "See board."
+                    },
+                    {
+                        question: "Draw a circuit diagram with a battery and two bulbs in parallel.",
+                        answer: "See board."
+                    },
+                    {
+                        question: "If you unscrew a series component, what happens to the rest?",
+                        answer: "They all immediately stop working because the path is broken"
+                    },
+                    {
+                        question: "In which circuit type is current shared between branches?",
+                        answer: "A parallel circuit"
+                    }
+                ],
+                /*
+                activity: {
+                    title: "Experiment 7.3: Series Circuit Analysis",
+                    description: "Observe series configurations and load dependencies.",
+                    steps: [
+                        "Build a circuit with 1 cell, a switch, and 1 bulb. Note its brightness.",
+                        "Add a second and then third bulb in series. Observe the brightness drop.",
+                        "Unscrew the middle bulb to observe why the whole loop goes dark."
+                    ]
+                },
+                */
+                exitTicket: "If three identical bulbs are in series and bulb one has 1 Amp of current, how much current is in bulb three?"
+            },
+            {
+                id: 6,
+                date: "Wednesday, 27 May 2026",
+                title: "Parallel Circuits",
+                pages: "Orange Book Pages: 45, 47",
+                doNow: {
+                    questions: [
+                        "Q1) What happens to series bulb brightness as you add more bulbs?",
+                        "Q2) If you unscrew a series component, what happens to the rest?"
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Parallel circuit",
+                        text: "has two or more pathways for the current to travel through at some point in the circuit."
+                    },
+                    {
+                        term: "Current split",
+                        text: "The current is shared out between the branches."
+                    },
+                    {
+                        term: "Independent paths",
+                        text: "If one component stops working, the other components on other paths will continue to work."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "In which circuit type is current shared between branches?",
+                        answer: "A parallel circuit"
+                    },
+                    {
+                        question: "True or False: Parallel bulbs are dimmer than series configurations.",
+                        answer: "False. They run brighter because each branch connects to full battery voltage"
+                    }
+                ],
+                activity: {
+                    title: "Experiment 7.4: Testing Parallel Paths",
+                    description: "Build parallel structures and observe current redundancy.",
+                    steps: [
+                        "Build a 2-bulb series circuit and a 2-bulb parallel circuit side-by-side.",
+                        "Compare the visual brightness of the bulbs between both boards.",
+                        "Unscrew one bulb in parallel. Note why the second bulb stays fully lit."
+                    ]
+                },
+                exitTicket: "Why are household lights wired in parallel instead of in series? List two distinct reasons."
+            },
+            {
+                id: 7,
+                date: "Thursday, 28 May 2026",
+                title: "Voltage, Ammeters, and Voltmeters",
+                pages: "Orange Book Pages: 39, 43, 44, 48",
+                doNow: {
+                    questions: [
+                        "Q1) In which circuit configuration is current shared between branches?",
+                        "Q2) True or False: Bulbs in parallel are dimmer than bulbs in series."
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Ammeter",
+                        text: "is connected in series with the section of the circuit through which current is measured."
+                    },
+                    {
+                        term: "Voltage (ngaohiko)",
+                        text: "can be thought of as the amount of energy that electrons carry. It measures the potential energy difference."
+                    },
+                    {
+                        term: "Voltmeter",
+                        text: "To measure voltage, a voltmeter is connected in parallel, i.e., across the component."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "What is the standard unit of potential difference, and its symbol?",
+                        answer: "The volt, represented by the letter V"
+                    },
+                    {
+                        question: "Should an ammeter have high or low internal resistance?",
+                        answer: "Low resistance, to prevent it from restricting the current flow"
+                    }
+                ],
+                activity: {
+                    title: "Experiment 7.5: Measuring Current & Voltage",
+                    description: "Practice correct physical placement of standard system meters.",
+                    steps: [
+                        "Build a basic single-bulb circuit. Close the switch to test the connection.",
+                        "Break the line and insert your ammeter in series directly within the loop.",
+                        "Connect your voltmeter in parallel by clipping it directly across the bulb terminals."
+                    ]
+                },
+                exitTicket: "Do you wire an ammeter in series or parallel? Do you wire a voltmeter in series or parallel?"
+            },
+            {
+                id: 8,
+                date: "Monday, 1 June 2026",
+                title: "Introduction to Magnetism",
+                pages: "Orange Book Pages: 49, 50",
+                doNow: {
+                    questions: [
+                        "Q1) What is the standard unit of potential difference and its symbol?",
+                        "Q2) Should an ammeter have high or low internal resistance?"
+                    ]
+                },
+                definitions: [
+                    {
+                        term: "Magnets",
+                        text: "Objects that attract iron and steel are called magnets."
+                    },
+                    {
+                        term: "Ferromagnetic metals",
+                        text: "All magnets are made of a group of metals such as nickel and iron."
+                    },
+                    {
+                        term: "Law of magnetism",
+                        text: "Like poles repel, unlike poles attract."
+                    }
+                ],
+                quizzes: [
+                    {
+                        question: "What happens to magnetic poles if you break a bar magnet in half?",
+                        answer: "Two new poles appear, creating two separate complete dipolar magnets"
+                    },
+                    {
+                        question: "Name two ferromagnetic metals listed in your book.",
+                        answer: "Iron and Nickel"
+                    }
+                ],
+                activity: {
+                    title: "Experiment 7.6: Magnetisation of Soft Iron",
+                    description: "Investigate temporary magnetic properties and induction.",
+                    steps: [
+                        "Touch an iron nail to the North Pole of a permanent bar magnet.",
+                        "Hang a chain of other iron nails or steel clips directly underneath the first nail.",
+                        "Pull the top nail away from the magnet. Observe if the temporary induction remains."
+                    ]
+                },
+                exitTicket: "If you break a bar magnet in half between North and South, what poles are formed on the broken ends?"
+            }
+        ];
+
+        let currentLessonIndex = 0;
+        let slideIndices = [];
+        let timerInterval = null;
+        let timerSecondsLeft = 300;
+        let isTimerRunning = true;
+
+        // Slide categories with custom assigned timer properties
+        function getSlideTimerDuration(slideElement) {
+            if (!slideElement) return 0;
+            const textContent = slideElement.innerHTML;
+
+            if (slideElement.id === 'slide-index-menu') {
+                return 0; // Hide/ignore on Cover Menu
+            }
+            if (textContent.includes('<u>Do Now:</u>')) {
+                return 300; // 5 Minutes
+            }
+            if (textContent.includes('Review questions:')) {
+                return 120; // 2 Minutes
+            }
+            if (textContent.includes('<u>Exit Ticket:</u>')) {
+                return 180; // 3 Minutes
+            }
+            if (slideElement.classList.contains('activity-slide')) {
+                return 600; // 10 Minutes for physical experiments
+            }
+            if (slideElement.classList.contains('lined-paper')) {
+                // If it's a cover details block, ignore
+                if (!textContent.includes('<u>')) {
+                    return 0;
+                }
+                return 60; // 1 Minute to copy definitions
+            }
+            return 0;
+        }
+
+        // Initialize Timer Control Logic
+        function startTimer(durationInSeconds) {
+            clearInterval(timerInterval);
+            const timerDiv = document.getElementById('countdown-timer');
+            
+            if (durationInSeconds <= 0) {
+                timerDiv.style.display = 'none';
+                return;
+            }
+            
+            timerDiv.style.display = 'block';
+            timerSecondsLeft = durationInSeconds;
+            isTimerRunning = true;
+            timerDiv.classList.remove('timer-paused', 'timer-warning');
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                if (isTimerRunning) {
+                    timerSecondsLeft--;
+                    if (timerSecondsLeft <= 0) {
+                        timerSecondsLeft = 0;
+                        clearInterval(timerInterval);
+                        timerDiv.classList.add('timer-warning');
+                    }
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const timerDiv = document.getElementById('countdown-timer');
+            const mins = Math.floor(timerSecondsLeft / 60).toString().padStart(2, '0');
+            const secs = (timerSecondsLeft % 60).toString().padStart(2, '0');
+            timerDiv.textContent = `${mins}:${secs}`;
+        }
+
+        // Timer Click Listeners (Single click: Play/Pause, Double click: Reset)
+        const timerElement = document.getElementById('countdown-timer');
+        timerElement.addEventListener('click', () => {
+            isTimerRunning = !isTimerRunning;
+            if (isTimerRunning) {
+                timerElement.classList.remove('timer-paused');
+            } else {
+                timerElement.classList.add('timer-paused');
+            }
+        });
+
+        timerElement.addEventListener('dblclick', () => {
+            const activeIndex = getActiveSlideIndex();
+            const duration = getSlideTimerDuration(slideIndices[activeIndex]);
+            startTimer(duration);
+        });
+
+        // Helper to remove answer placeholder text on answer slides
+        function cleanQuestionForAnswer(qText) {
+            return qText.replace(/<span class="answer-placeholder">\[write answer here\]<\/span>/gi, '');
+        }
+
+        // Build Presentation Deck
+        function buildSlidesDeck(lessonIndex) {
+            const lesson = lessonsData[lessonIndex];
+            const container = document.getElementById('slides-wrapper');
+            container.innerHTML = ''; // Wipe past slides
+
+            // ==========================================
+            // SLIDE 0: CONTENTS INDEX
+            // ==========================================
+            const menuSlide = document.createElement('div');
+            menuSlide.className = 'slide lined-paper';
+            menuSlide.id = 'slide-index-menu';
+            
+            let menuHTML = `<div class="notebook-content"><div class="lined-text-block">`;
+            menuHTML += `<span class="handwritten-title font-bold">Lesson List (Click to Jump)</span><br>`;
+            
+            lessonsData.forEach((l) => {
+                menuHTML += `
+                    <button onclick="changeLesson(${l.id - 1})" class="menu-btn font-bold">
+                        ${l.id}. ${l.title}
+                    </button><br>
+                `;
+            });
+            menuHTML += `</div></div>`;
+            menuSlide.innerHTML = menuHTML;
+            container.appendChild(menuSlide);
+
+            // ==========================================
+            // SLIDE 1: COVER DETAILS & DO NOW COMBINED
+            // ==========================================
+            const slide1 = document.createElement('div');
+            slide1.className = 'slide lined-paper';
+            slide1.innerHTML = `
+                <div class="notebook-content">
+                    <div class="lined-text-block">
+                        ${lesson.date}<br>
+                        <span class="handwritten-title">${lesson.title}</span><br>
+                        ${lesson.pages}<br>
+                        <u>Do Now:</u> ${lesson.doNow.questions[0]}<br>
+                        ${lesson.doNow.questions[1] || ''}<br>
+                        <span class="answer-placeholder">WRITE YOUR ANSWER HERE</span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(slide1);
+
+            // ==========================================
+            // SLIDE 2+: DEFINITION SHEETS (Unlabeled, Underlined Term)
+            // ==========================================
+            lesson.definitions.forEach((def) => {
+                const defSlide = document.createElement('div');
+                defSlide.className = 'slide lined-paper';
+                defSlide.innerHTML = `
+                    <div class="notebook-content">
+                        <div class="lined-text-block">
+                            <u>${def.term}</u> ${def.text}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(defSlide);
+            });
+
+            // ==========================================
+            // SLIDES: REVIEW QUESTIONS (Q & A Sequential Pairs)
+            // ==========================================
+            lesson.quizzes.forEach((quiz, qIdx) => {
+                // Question Slide
+                const qSlide = document.createElement('div');
+                qSlide.className = 'slide lined-paper';
+                
+                // If the custom question data already provides a grey instruction font tag, we do not append the default WRITE YOUR ANSWER HERE
+                const qPlaceholder = quiz.question.includes('answer-placeholder') ? '' : '<br><span class="answer-placeholder">WRITE YOUR ANSWER HERE</span>';
+                
+                qSlide.innerHTML = `
+                    <div class="notebook-content">
+                        <div class="lined-text-block">
+                            ${qIdx === 0 ? '<u>Review questions:</u><br>' : ''}
+                            Q${qIdx + 1}) ${quiz.question}${qPlaceholder}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(qSlide);
+
+                // Answer Slide
+                const aSlide = document.createElement('div');
+                aSlide.className = 'slide lined-paper';
+                const cleanedQText = cleanQuestionForAnswer(quiz.question);
+                
+                aSlide.innerHTML = `
+                    <div class="notebook-content">
+                        <div class="lined-text-block">
+                            ${qIdx === 0 ? '<u>Review questions:</u><br>' : ''}
+                            Q${qIdx + 1}) ${cleanedQText}<br>
+                            A) ${quiz.answer}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(aSlide);
+            });
+
+            // ==========================================
+            // SLIDE: EXERCISE ACTIVITY (Modern B&W High Contrast)
+            // ==========================================
+            const actSlide = document.createElement('div');
+            actSlide.className = 'slide activity-slide';
+            actSlide.innerHTML = `
+                <div class="max-w-5xl mx-auto px-8 py-10 flex flex-col justify-center h-full text-black">
+                    <div class="text-xs font-bold uppercase tracking-widest mb-2 font-sans">Lab Activity</div>
+                    <h1 class="text-3xl md:text-5xl font-black tracking-tight mb-4">${lesson.activity.title}</h1>
+                    <p class="text-neutral-800 text-lg md:text-xl mb-6 font-sans h-auto min-h-0 line-height-normal">${lesson.activity.description}</p>
+                    
+                    <div class="bg-white p-6 md:p-8 rounded shadow border border-black">
+                        <ol class="space-y-4 font-sans text-base md:text-lg">
+                            ${lesson.activity.steps.map((step, idx) => `
+                                <li class="flex gap-4 items-start">
+                                    <span class="flex-shrink-0 w-8 h-8 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm mt-0.5">${idx + 1}</span>
+                                    <p class="text-black h-auto min-h-0 line-height-normal">${step}</p>
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                </div>
+            `;
+            container.appendChild(actSlide);
+
+            // ==========================================
+            // SLIDE: EXIT TICKET (Back to Lined Paper)
+            // ==========================================
+            const exitSlide = document.createElement('div');
+            exitSlide.className = 'slide lined-paper';
+            exitSlide.innerHTML = `
+                <div class="notebook-content">
+                    <div class="lined-text-block">
+                        <u>Exit Ticket:</u><br>
+                        ${lesson.exitTicket}
+                    </div>
+                </div>
+            `;
+            container.appendChild(exitSlide);
+
+            // Update local coordinate caches
+            slideIndices = Array.from(container.children);
+        }
+
+        // Jump Lesson Action
+        function changeLesson(index) {
+            currentLessonIndex = index;
+            buildSlidesDeck(currentLessonIndex);
+            navigateToSlide(1); // Jump straight to Lesson Slide 1 (Cover Page)
+        }
+
+        // Active Slide Indexer
+        function getActiveSlideIndex() {
+            const container = document.getElementById('slides-wrapper');
+            const currentScroll = container.scrollTop;
+            const threshold = window.innerHeight / 2;
+            let activeIdx = 0;
+            
+            for (let i = 0; i < slideIndices.length; i++) {
+                const itemTop = slideIndices[i].offsetTop;
+                if (Math.abs(currentScroll - itemTop) < threshold) {
+                    activeIdx = i;
+                    break;
+                }
+            }
+            return activeIdx;
+        }
+
+        // Sliding Transition with Timer Handler
+        let lastActiveIdx = -1;
+        function handleSlideChange() {
+            const activeIndex = getActiveSlideIndex();
+            if (activeIndex !== lastActiveIdx) {
+                lastActiveIdx = activeIndex;
+                const activeSlide = slideIndices[activeIndex];
+                const duration = getSlideTimerDuration(activeSlide);
+                startTimer(duration);
+            }
+        }
+
+        function navigateToSlide(index) {
+            if (index < 0 || index >= slideIndices.length) return;
+            const targetElement = slideIndices[index];
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Capture Scroll/Snap movements to update the active timer values
+        document.getElementById('slides-wrapper').addEventListener('scroll', () => {
+            handleSlideChange();
+        });
+
+        // Capture Keyboard Actions
+        document.addEventListener('keydown', (e) => {
+            const activeIndex = getActiveSlideIndex();
+
+            if (e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateToSlide(activeIndex + 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateToSlide(activeIndex - 1);
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullScreenMode();
+            }
+        });
+
+        // Fullscreen Controls
+        function toggleFullScreenMode() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch((err) => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Run Onload
+        window.onload = () => {
+            buildSlidesDeck(currentLessonIndex);
+            // Prime initial slide timer trigger
+            handleSlideChange();
+        };
+    </script>
+</body>
+</html>

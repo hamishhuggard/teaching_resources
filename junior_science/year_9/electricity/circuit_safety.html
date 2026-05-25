@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year 9 Circuit Safety</title>
+    <style>
+        /* CSS Reset & Variable Definitions */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --accent-color: #e2e8f0;
+            --accent-border: #cbd5e1;
+            --highlight: #f59e0b; /* Amber warning accent */
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+        }
+
+        /* Slide Container */
+        .presentation {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Slide Styling */
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8% 10%;
+            text-align: center;
+            background-color: var(--bg-color);
+        }
+
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Typography & Layout */
+        h1 {
+            font-size: clamp(3rem, 7vw, 6rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 2rem;
+            color: var(--text-main);
+        }
+
+        h2 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 2.5rem;
+            color: var(--text-main);
+        }
+
+        .subtitle {
+            font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+            color: var(--text-muted);
+            font-weight: 400;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.4;
+        }
+
+        .main-point {
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            font-weight: 600;
+            line-height: 1.35;
+            max-width: 950px;
+            margin: 0 auto;
+        }
+
+        /* Emphasis helper classes */
+        .alert {
+            color: #ef4444; /* Safety Red */
+            font-weight: 700;
+        }
+
+        .warning {
+            color: #d97706; /* Warning Amber */
+            font-weight: 700;
+        }
+
+        .action {
+            color: #059669; /* Green safety checklist */
+            font-weight: 700;
+        }
+
+        /* Bullet List */
+        .bullet-list {
+            text-align: left;
+            max-width: 900px;
+            margin: 0 auto;
+            list-style: none;
+        }
+
+        .bullet-list li {
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            line-height: 1.4;
+            margin-bottom: 1.5rem;
+            position: relative;
+            padding-left: 2.5rem;
+            color: var(--text-muted);
+        }
+
+        .bullet-list li strong {
+            color: var(--text-main);
+        }
+
+        .bullet-list li::before {
+            content: "•";
+            color: var(--highlight);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+            position: absolute;
+            left: 0.5rem;
+            font-size: 1.5em;
+            line-height: 0.9;
+        }
+
+        /* Minimal Layout Splitting */
+        .split-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1100px;
+            text-align: left;
+        }
+
+        @media (min-width: 768px) {
+            .split-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .grid-card {
+            background: var(--card-bg);
+            padding: 3rem;
+            border-radius: 16px;
+            border: 1px solid var(--accent-border);
+        }
+
+        .grid-card h3 {
+            font-size: clamp(1.8rem, 3vw, 2.4rem);
+            margin-bottom: 1rem;
+        }
+
+        .grid-card p {
+            font-size: clamp(1.2rem, 2vw, 1.6rem);
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Bottom Controls Overlays */
+        .controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            right: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .slide-counter {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            background-color: var(--accent-color);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+
+        .hint {
+            font-size: 1rem;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        /* Tap zones for touchscreen/mouse navigation */
+        .nav-zone {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 15%;
+            z-index: 5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: rgba(0,0,0,0.02);
+        }
+
+        .nav-zone:hover {
+            opacity: 1;
+        }
+
+        .nav-zone-prev {
+            left: 0;
+        }
+
+        .nav-zone-next {
+            right: 0;
+        }
+
+        .nav-arrow {
+            font-size: 2rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="presentation">
+        
+        <!-- Navigation Tap Zones -->
+        <div class="nav-zone nav-zone-prev" onclick="changeSlide(-1)" title="Previous Slide">
+            <span class="nav-arrow">⟵</span>
+        </div>
+        <div class="nav-zone nav-zone-next" onclick="changeSlide(1)" title="Next Slide">
+            <span class="nav-arrow">⟶</span>
+        </div>
+
+        <!-- SLIDE 1: Title -->
+        <div class="slide active">
+            <h1>Circuit Safety</h1>
+            <p class="subtitle">Essential Safety Guidelines for Practical Labs</p>
+            <div style="margin-top: 3rem; font-size: 1.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);">Year 9 Science</div>
+        </div>
+
+        <!-- SLIDE 2: Mandatory PPE -->
+        <div class="slide">
+            <h2>Mandatory Safety</h2>
+            <p class="main-point">
+                You must wear <span class="alert">Safety Glasses</span>.<br><br>
+                Put them on <span class="warning">before</span> touching any equipment.<br>
+                Keep them on until everything is packed away.
+            </p>
+        </div>
+
+        <!-- SLIDE 3: The Golden Rule -->
+        <div class="slide">
+            <h2>The Golden Rule</h2>
+            <p class="main-point">
+                Power is <span class="warning">ALWAYS</span> connected last.<br><br>
+                Build your circuit with the power supply switched <span class="alert">OFF</span>.<br>
+                Check your wires twice before turning it on.
+            </p>
+        </div>
+
+        <!-- SLIDE 4: What is a Short Circuit -->
+        <div class="slide">
+            <h2>Short Circuits</h2>
+            <p class="main-point">
+                Never connect a wire directly from <span class="alert">Positive (+)</span> to <span class="alert">Negative (-)</span>.<br><br>
+                Electricity must always pass through a load, like a bulb.
+            </p>
+        </div>
+
+        <!-- SLIDE 5: Short Circuit Danger -->
+        <div class="slide">
+            <h2>The Danger</h2>
+            <p class="main-point">
+                Short circuits make wires <span class="warning">heat up instantly</span>.<br><br>
+                This melts plastic, ruins equipment, and causes severe skin burns.
+            </p>
+        </div>
+
+        <!-- SLIDE 6: Warning Signs -->
+        <div class="slide">
+            <h2>Signs of Danger</h2>
+            <ul class="bullet-list">
+                <li><strong>Heat:</strong> A wire or battery feels hot to touch.</li>
+                <li><strong>Smell:</strong> The scent of hot metal or burning plastic.</li>
+                <li><strong>Symptom:</strong> Bulbs turn off or dim unexpectedly.</li>
+            </ul>
+        </div>
+
+        <!-- SLIDE 7: Power Pack Setup -->
+        <div class="slide">
+            <h2>Power Supplies</h2>
+            <p class="main-point">
+                Use the <span class="action">DC Terminals</span> only.<br><br>
+                Usually marked with <span class="alert">Red (+)</span> and Black (-).<br>
+                Do not touch the AC terminals.
+            </p>
+        </div>
+
+        <!-- SLIDE 8: Safe Voltage Limits -->
+        <div class="slide">
+            <h2>Keep Voltage Low</h2>
+            <p class="main-point">
+                Only use settings between <span class="action">2V and 4V</span>.<br><br>
+                Anything higher will instantly blow the bulbs and melt components.
+            </p>
+        </div>
+
+        <!-- SLIDE 9: Liquid Control -->
+        <div class="slide">
+            <h2>No Liquids</h2>
+            <p class="main-point">
+                Hands must be <span class="action">completely dry</span>.<br><br>
+                All water bottles must stay inside zipped school bags.
+            </p>
+        </div>
+
+        <!-- SLIDE 10: Tidy Workspace -->
+        <div class="slide">
+            <h2>A Safe Desk</h2>
+            <p class="main-point">
+                Keep bags and coats <span class="action">under the desk</span>.<br><br>
+                Avoid cluttered workbenches so you can trace your wires easily.
+            </p>
+        </div>
+
+        <!-- SLIDE 11: Emergency Actions -->
+        <div class="slide">
+            <h2>Emergency!</h2>
+            <div class="split-grid">
+                <div class="grid-card">
+                    <h3>1. Switch Off</h3>
+                    <p>Immediately turn off the power pack at the source if safe to do so.</p>
+                </div>
+                <div class="grid-card">
+                    <h3>2. Tell the Teacher</h3>
+                    <p>Alert your teacher immediately. Do not try to move hot components yourself.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SLIDE 12: final check -->
+        <div class="slide">
+            <h2>Final Checklist</h2>
+            <ul class="bullet-list">
+                <li><span class="action">✓</span> Safety glasses are on.</li>
+                <li><span class="action">✓</span> Power pack is turned off.</li>
+                <li><span class="action">✓</span> Workbench is clear of drinks.</li>
+            </ul>
+            <div style="margin-top: 3rem; font-size: 2rem; font-weight: 700; color: #059669;">You are ready to build.</div>
+        </div>
+
+        <!-- Footer Overlays -->
+        <div class="controls">
+            <div class="hint">Use ⟵ ⟶ or Space to navigate. Press 'F' for Fullscreen.</div>
+            <div class="slide-counter" id="counter">1 / 12</div>
+        </div>
+
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const counter = document.getElementById('counter');
+        let currentSlide = 0;
+
+        function updateSlides() {
+            slides.forEach((slide, index) => {
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                } else {
+                    slide.classList.remove('active');
+                }
+            });
+            counter.innerText = `${currentSlide + 1} / ${slides.length}`;
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 0) {
+                currentSlide = 0;
+            } else if (currentSlide >= slides.length) {
+                currentSlide = slides.length - 1;
+            }
+            updateSlides();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                changeSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                changeSlide(-1);
+            } else if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        });
+
+        // Initialize
+        updateSlides();
+    </script>
+</body>
+</html>
