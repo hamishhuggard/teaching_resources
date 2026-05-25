@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCEA Level 3 Physics Mock Test: Rotating Systems</title>
+    <!-- Tailwind CSS for sleek interface layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- KaTeX for beautiful math typesetting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        /* A4 styling for high-fidelity screen visualization */
+        .a4-page {
+            width: 210mm;
+            height: 297mm;
+            padding: 20mm;
+            margin: 20px auto;
+            background: #ffffff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Writing lines for natural student manual script response */
+        .writing-line {
+            border-bottom: 1px dashed #cbd5e1;
+            height: 2.25rem;
+            width: 100%;
+        }
+
+        /* Exact print layout specifications for system print spoolers */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .a4-page {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 !important;
+                padding: 15mm !important;
+                box-shadow: none !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                box-sizing: border-box !important;
+            }
+            table th {
+                background-color: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen pb-12">
+
+    <div class="no-print bg-white border-b border-slate-200 sticky top-0 z-50 px-6 py-4 shadow-sm flex items-center justify-between">
+        <div>
+            <h1 class="text-lg font-bold text-slate-900">NCEA L3 Physics: Rotating Systems Test</h1>
+            <p class="text-xs text-slate-500">20-Minute Printable Mock Test &amp; Marking Guide</p>
+        </div>
+        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold transition flex items-center gap-2 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.89l-2.1 2.1a2.25 2.25 0 01-3.18 0l-1.05-1.05a2.25 2.25 0 010-3.18l2.1-2.1m4.23 4.23L17 5.5m-10.28 8.39L13 18.5m-3-13.5H3.75A1.5 1.5 0 002.25 6.5v12a1.5 1.5 0 001.5 1.5h16.5a1.5 1.5 0 001.5-1.5V6.5a1.5 1.5 0 00-1.5-1.5H15M9 3h6m-6 3h6m-3-3v3" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 9h10.5M6.75 12.75h10.5M6.75 16.5h10.5" />
+            </svg>
+            Print Test / Export PDF
+        </button>
+    </div>
+
+    <!-- MAIN PAGE SHEETS WRAPPER -->
+    <div class="max-w-[210mm] mx-auto mt-4">
+
+        <!-- PAGE 1: TEST FRONT PAGE -->
+        <div class="a4-page">
+            <!-- Header Block -->
+            <div class="border-b-2 border-slate-900 pb-3 mb-4">
+                <div class="flex justify-between items-baseline">
+                    <h2 class="text-lg font-bold uppercase tracking-wider text-slate-900">Physics 91524 (Progress Test)</h2>
+                    <span class="text-xs font-semibold text-slate-600">Time Allowed: 20 minutes</span>
+                </div>
+                <h1 class="text-2xl font-black text-slate-900 mt-1">Rotating Systems</h1>
+                <div class="mt-4 flex gap-4">
+                    <div class="flex-grow flex items-center gap-2">
+                        <span class="text-xs font-semibold uppercase text-slate-600">Student Name:</span>
+                        <div class="flex-grow border-b border-slate-900 h-6"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equations & Constants Catalog -->
+            <div class="mb-5 text-[11px]">
+                <h3 class="font-bold text-slate-900 uppercase tracking-tight mb-1 text-[11px]">Formulae &amp; Constants Reference</h3>
+                <table class="w-full border-collapse border border-slate-300 text-left">
+                    <thead>
+                        <tr class="bg-slate-50">
+                            <th class="border border-slate-300 p-1 font-bold">Physical Constants</th>
+                            <th class="border border-slate-300 p-1 font-bold">Rotational Motion</th>
+                            <th class="border border-slate-300 p-1 font-bold">Circular Motion &amp; Gravity</th>
+                            <th class="border border-slate-300 p-1 font-bold">Energy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border border-slate-300 p-1 leading-relaxed">
+                                $g = 9.80\text{ m s}^{-2}$<br>
+                                $G = 6.67 \times 10^{-11}\text{ N m}^2\text{ kg}^{-2}$<br>
+                                $M_E = 5.97 \times 10^{24}\text{ kg}$<br>
+                                $R_E = 6.37 \times 10^6\text{ m}$
+                            </td>
+                            <td class="border border-slate-300 p-1 leading-relaxed">
+                                $\omega_f = \omega_i + \alpha t$<br>
+                                $\tau = I\alpha$<br>
+                                $L = I\omega$<br>
+                                $\theta = \omega_i t + \frac{1}{2}\alpha t^2$
+                            </td>
+                            <td class="border border-slate-300 p-1 leading-relaxed">
+                                $F_c = \frac{mv^2}{r}$<br>
+                                $F_g = mg$<br>
+                                $v = \omega r$<br>
+                                $F = \frac{GMm}{r^2}$
+                            </td>
+                            <td class="border border-slate-300 p-1 leading-relaxed">
+                                $E_p = mgh$<br>
+                                $E_k = \frac{1}{2}mv^2$<br>
+                                $E_{k(\text{rot})} = \frac{1}{2}I\omega^2$
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- QUESTION 1 -->
+            <div class="mb-4 flex-grow">
+                <div class="flex justify-between items-baseline mb-1">
+                    <h3 class="font-bold text-slate-900 text-[14px]">QUESTION 1: Rotational Motion (The Pottery Wheel)</h3>
+                </div>
+                <p class="text-xs text-slate-700 leading-relaxed mb-3">
+                    A person making a clay pot spins up a heavy pottery wheel from rest. The wheel accelerates uniformly from rest ($\omega_i = 0\text{ rad s}^{-1}$) to a final angular velocity of $\omega_f = 10.0\text{ rad s}^{-1}$ over a time of $t = 4.00\text{ seconds}$.
+                </p>
+
+                <!-- Part A -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (a) <strong>[Achieved]</strong> Use a rotational equation of motion to show that the angular acceleration ($\alpha$) of the wheel is $2.50\text{ rad s}^{-2}$.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part B -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (b) <strong>[Merit]</strong> The wheel has a rotational inertia of $I = 1.50\text{ kg m}^2$. A constant frictional torque of $0.50\text{ N m}$ opposes this spin. Calculate the total applied torque ($\tau$) needed to cause the angular acceleration in (a).
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part C -->
+                <div class="mb-1">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (c) <strong>[Excellence]</strong> The person removes the applied torque and allows the wheel to spin at a constant angular velocity. She then drops a heavy lump of wet clay onto the outer edge, which increases the total rotational inertia ($I$) of the system. Explain what happens to the angular velocity of the spinning wheel when the lump of clay sticks to it. Name the physics conservation law that explains this change.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 2: QUESTIONS 2 & 3 -->
+        <div class="a4-page">
+            <!-- QUESTION 2 -->
+            <div class="mb-5">
+                <h3 class="font-bold text-slate-900 text-[14px] mb-1">QUESTION 2: The Conical Pendulum</h3>
+                
+                <div class="flex flex-col md:flex-row gap-4 items-start mb-2">
+                    <!-- Left Side Content -->
+                    <div class="flex-grow space-y-2">
+                        <p class="text-xs text-slate-700 leading-relaxed">
+                            A mass swings in a horizontal circle of radius $r = 0.500\text{ m}$ on a string. The string makes an angle of $\theta = 52.0^\circ$ with the vertical. The swinging mass has a value of $m = 0.150\text{ kg}$. 
+                        </p>
+                        
+                        <!-- Part A -->
+                        <div>
+                            <p class="text-xs font-semibold text-slate-800">
+                                (a) <strong>[Achieved]</strong> Name the <strong>two</strong> real physical forces acting on the swinging mass.
+                            </p>
+                            <div class="grid grid-cols-2 gap-2 mt-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-semibold">1.</span>
+                                    <div class="flex-grow border-b border-slate-300 h-5"></div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-semibold">2.</span>
+                                    <div class="flex-grow border-b border-slate-300 h-5"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side Interactive Vector Diagram -->
+                    <div class="relative w-40 h-36 bg-slate-50 border border-slate-200 rounded-lg p-1 self-center shrink-0">
+                        <svg class="w-full h-full" viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Ceiling boundary -->
+                            <line x1="20" y1="20" x2="180" y2="20" stroke="#475569" stroke-width="2.5" />
+                            <line x1="40" y1="20" x2="35" y2="15" stroke="#94a3b8" stroke-width="1.2" />
+                            <line x1="70" y1="20" x2="65" y2="15" stroke="#94a3b8" stroke-width="1.2" />
+                            <line x1="100" y1="20" x2="95" y2="15" stroke="#94a3b8" stroke-width="1.2" />
+                            <line x1="130" y1="20" x2="125" y2="15" stroke="#94a3b8" stroke-width="1.2" />
+                            <line x1="160" y1="20" x2="155" y2="15" stroke="#94a3b8" stroke-width="1.2" />
+                            
+                            <!-- Vertical reference line -->
+                            <line x1="100" y1="20" x2="100" y2="140" stroke="#94a3b8" stroke-dasharray="3,3" stroke-width="1.2" />
+                            
+                            <!-- String (52 degree representation) -->
+                            <line x1="100" y1="20" x2="150" y2="110" stroke="#334155" stroke-width="2" />
+                            
+                            <!-- Precise concave angle arc representing theta (from vertical to string) -->
+                            <path d="M 100 60 A 40 40 0 0 0 119.5 55.4" fill="none" stroke="#dc2626" stroke-width="1.8" />
+                            
+                            <!-- 3D Perspective Ellipse Circular Path -->
+                            <ellipse cx="100" cy="110" rx="50" ry="12" fill="none" stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1.2" />
+                            
+                            <!-- Radius Helper line (Enlarged) -->
+                            <line x1="100" y1="110" x2="150" y2="110" stroke="#4f46e5" stroke-width="1.5" />
+                            <!-- End Ticks for Radius -->
+                            <line x1="100" y1="106" x2="100" y2="114" stroke="#4f46e5" stroke-width="1.2" />
+                            <line x1="150" y1="106" x2="150" y2="114" stroke="#4f46e5" stroke-width="1.2" />
+                            
+                            <!-- Mass ball -->
+                            <circle cx="150" cy="110" r="9" fill="#1e293b" />
+                        </svg>
+                        <!-- Absolute LaTeX overlays representing physical dimensions -->
+                        <div class="absolute text-[11px] text-red-600 font-bold" style="top: 41%; left: 52%;">$\theta$</div>
+                        <div class="absolute text-[11px] text-indigo-600 font-bold" style="top: 65%; left: 61%; transform: translateX(-50%);">$r$</div>
+                        <div class="absolute text-[11px] text-slate-800 font-bold" style="top: 60%; left: 81%;">$m$</div>
+                    </div>
+                </div>
+
+                <!-- Part B -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (b) <strong>[Merit]</strong> Show that the centripetal force ($F_c$) acting on the ball is approximately $1.88\text{ N}$.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part C -->
+                <div class="mb-1">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (c) <strong>[Excellence]</strong> Use your answer from (b) and the circular motion equations to calculate the speed ($v$) of the mass. Then, explain how the angle ($\theta$) would change if the speed of the mass were to increase.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+            </div>
+
+            <!-- QUESTION 3 -->
+            <div class="mb-3 flex-grow">
+                <h3 class="font-bold text-slate-900 text-[14px] mb-1">QUESTION 3: Satellites in Orbit</h3>
+                <p class="text-xs text-slate-700 leading-relaxed mb-3">
+                    A satellite orbits the Earth in a stable circular path.
+                </p>
+
+                <!-- Part A -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (a) <strong>[Achieved]</strong> What force holds the satellite in circular orbit (not centripetal)?
+                    </p>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part B -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (b) <strong>[Merit]</strong> The satellite orbits at a distance of $r = 7.00 \times 10^3\text{ km}$ ($7.00 \times 10^6\text{ m}$) from the center of the Earth. Using the mass of the Earth ($M_E$) from the reference table, and setting the gravitational force equal to the centripetal force, calculate the orbital speed ($v$) of the satellite as it orbits at this radius.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part C -->
+                <div class="mb-1">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (c) <strong>[Excellence]</strong> A geostationary satellite must stay directly above the exact same spot on Earth's equator. Explain why it is impossible to have a geostationary satellite orbit directly over Auckland, New Zealand (which is south of the equator).
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: QUESTION 4 -->
+        <div class="a4-page">
+            <!-- QUESTION 4 -->
+            <div class="mb-6 flex-grow">
+                <h3 class="font-bold text-slate-900 text-[14px] mb-1">QUESTION 4: Vertical Circular Motion</h3>
+                <p class="text-xs text-slate-700 leading-relaxed mb-3">
+                    A rollercoaster cart of mass $m = 200\text{ kg}$ goes around a vertical loop-the-loop track. The radius of the loop is $r = 2.55\text{ m}$.
+                </p>
+
+                <!-- Part A -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (a) <strong>[Achieved]</strong> Calculate the minimum speed ($v$) the cart must have at the very top of the loop so it does not lose contact with the track.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part B -->
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (b) <strong>[Merit]</strong> As the cart travels down from the top of the loop to the bottom of the loop, its speed increases. Explain how conservation of energy explains this increase in speed.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+
+                <!-- Part C -->
+                <div class="mb-2">
+                    <p class="text-xs font-semibold text-slate-800">
+                        (c) <strong>[Excellence]</strong> At the top of the loop, gravity helps pull the cart down into its circular path. At the bottom of the loop, the track must push upwards to fight gravity and keep the cart moving in a circle. Use these ideas to explain why a passenger feels weightless at the top of the loop, but feels very heavy at the bottom.
+                    </p>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                    <div class="writing-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 4: MARKING GUIDE (TEACHER REFERENCE) -->
+        <div class="a4-page">
+            <div class="border-b-2 border-slate-900 pb-2 mb-4">
+                <h2 class="text-lg font-bold uppercase tracking-wider text-slate-900">Assessment Marking Guide</h2>
+                <span class="text-xs text-slate-500">For Teacher Use Only — Do Not Print for Students</span>
+            </div>
+
+            <div class="space-y-4 text-xs overflow-y-auto flex-grow">
+                <!-- Q1 -->
+                <div>
+                    <h4 class="font-bold text-slate-900 border-b border-slate-300 pb-0.5">QUESTION 1</h4>
+                    <ul class="list-disc pl-4 space-y-1 mt-1">
+                        <li><strong>(a) [Achieved]:</strong> Shows correct substitutions: $10.0 = 0 + \alpha(4.00) \implies \alpha = 10.0 / 4.00 = 2.50\text{ rad s}^{-2}$.</li>
+                        <li><strong>(b) [Merit]:</strong> Shows clear two-step calculation:
+                            <br>Net torque: $\tau_{\text{net}} = I\alpha = 1.50 \times 2.50 = 3.75\text{ N m}$
+                            <br>Applied torque: $\tau_{\text{applied}} = \tau_{\text{net}} + \tau_{\text{friction}} = 3.75 + 0.50 = 4.25\text{ N m}$. Allow correct unit $\text{N m}$ or $\text{kg m}^2\text{ s}^{-2}$.
+                        </li>
+                        <li><strong>(c) [Excellence]:</strong> Identifies <strong>Conservation of Angular Momentum</strong>. Explains that because the rotational inertia ($I$) increases, angular velocity ($\omega$) must decrease to keep total angular momentum ($L = I\omega$) constant.</li>
+                    </ul>
+                </div>
+
+                <!-- Q2 -->
+                <div>
+                    <h4 class="font-bold text-slate-900 border-b border-slate-300 pb-0.5">QUESTION 2</h4>
+                    <ul class="list-disc pl-4 space-y-1 mt-1">
+                        <li><strong>(a) [Achieved]:</strong> Identifies <strong>Gravity (Weight)</strong> and <strong>Tension</strong> (Do not accept centripetal).</li>
+                        <li><strong>(b) [Merit]:</strong> Correctly resolves components to find $F_c$:
+                            <br>Vertical balance: $F_T\cos\theta = F_g \implies F_T\cos(52.0^\circ) = mg = 0.150 \times 9.80 = 1.47\text{ N} \implies F_T = 2.39\text{ N}$
+                            <br>Horizontal force: $F_c = F_T\sin(52.0^\circ) = 2.39 \times \sin(52.0^\circ) = 1.88\text{ N}$.
+                            <br><em>Alternative shortcut:</em> $F_c = mg\tan\theta = 1.47 \times \tan(52.0^\circ) = 1.47 \times 1.280 = 1.88\text{ N}$.
+                        </li>
+                        <li><strong>(c) [Excellence]:</strong> Shows clear speed calculation using $F_c$:
+                            <br>Formula step: $F_c = \frac{mv^2}{r} \implies v = \sqrt{\frac{F_c \cdot r}{m}} = \sqrt{\frac{1.88 \times 0.500}{0.150}} = \sqrt{6.27} \approx 2.50\text{ m s}^{-1}$.
+                            <br>Explains qualitative change: If speed ($v$) increases, the required centripetal force ($F_c = \frac{mv^2}{r}$) increases. Because the horizontal component of the tension force ($F_T\sin\theta = mg\tan\theta$) provides this centripetal force, the angle $\theta$ must increase to make $\tan\theta$ larger.
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Q3 -->
+                <div>
+                    <h4 class="font-bold text-slate-900 border-b border-slate-300 pb-0.5">QUESTION 3</h4>
+                    <ul class="list-disc pl-4 space-y-1 mt-1">
+                        <li><strong>(a) [Achieved]:</strong> Identifies <strong>Gravity / Gravitational Force</strong>.</li>
+                        <li><strong>(b) [Merit]:</strong> Calculation using $M_E$: $v = \sqrt{\frac{G M_E}{r}} = \sqrt{\frac{6.67 \times 10^{-11} \times 5.97 \times 10^{24}}{7.00 \times 10^6}} = \sqrt{5.69 \times 10^7} \approx 7540\text{ m s}^{-1}$.</li>
+                        <li><strong>(c) [Excellence]:</strong> Explains that the center of any orbital plane must align with Earth's center of mass. An orbit centered over Auckland would require continuous lateral thrust because gravity pulls directly toward Earth's center.</li>
+                    </ul>
+                </div>
+
+                <!-- Q4 -->
+                <div>
+                    <h4 class="font-bold text-slate-900 border-b border-slate-300 pb-0.5">QUESTION 4</h4>
+                    <ul class="list-disc pl-4 space-y-1 mt-1">
+                        <li><strong>(a) [Achieved]:</strong> Calculation: $v = \sqrt{2.55 \times 9.80} = \sqrt{25.0} = 5.00\text{ m s}^{-1}$.</li>
+                        <li><strong>(b) [Merit]:</strong> Explains conversion of Gravitational Potential Energy ($E_p = mgh$) at top to Kinetic Energy ($E_k = \frac{1}{2}mv^2$) at bottom, accelerating the cart.</li>
+                        <li><strong>(c) [Excellence]:</strong> Explains that "felt weight" is the normal support force ($F_N$). At the top, gravity provides centripetal force ($F_N \approx 0 \implies$ weightless). At the bottom, $F_s$ must overcome gravity and provide upward centripetal acceleration ($F_N = F_g + F_c \implies$ heavy).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function renderMath() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            if (window.renderMathInElement) {
+                renderMath();
+            }
+        });
+    </script>
+</body>
+</html>
