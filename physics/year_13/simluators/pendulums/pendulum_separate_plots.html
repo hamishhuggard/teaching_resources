@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase Trace Physics Simulator</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #1e293b;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 8px 16px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+            border: 1px solid #e2e8f0;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: #e2e8f0;
+        }
+
+        button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-weight: 700;
+            font-size: 17px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:active { transform: scale(0.92); }
+
+        /* Updated UI Theme Palette Colors */
+        .btn-disp { background: #fff2e6; color: #FF7F00; border: 1px solid #FF7F00; }
+        .btn-vel { background: #e6f6f0; color: #00A86B; border: 1px solid #00A86B; }
+        .btn-acc { background: #e6f6fc; color: #00A3E0; border: 1px solid #00A3E0; }
+        .btn-drive { background: #f0e6f6; color: #6F2DA8; border: 1px solid #6F2DA8; }
+        
+        .btn-trace { background: #f8fafc; color: #475569; border: 1px solid #64748b; }
+        .btn-fric { background: #fff7ed; color: #9a3412; border: 1px solid #f97316; }
+
+        .btn-sys {
+            background: #faf5ff; 
+            color: #6b21a8; 
+            border: 1px solid #d8b4fe;
+            font-family: 'Segoe UI', sans-serif !important;
+            font-style: normal !important;
+            font-weight: 700 !important;
+        }
+        .btn-rot {
+            background: #f0fdfa; 
+            color: #0f766e; 
+            border: 1px solid #5eead4;
+            font-family: 'Segoe UI', sans-serif !important;
+            font-style: normal !important;
+            font-weight: 700 !important;
+        }
+
+        button.inactive {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #cbd5e1;
+            opacity: 0.45;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding-left: 4px;
+        }
+
+        .slider-label {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+            min-width: 65px;
+        }
+
+        input[type=range] {
+            width: 75px;
+            cursor: pointer;
+            accent-color: #64748b;
+        }
+        
+        #driveFreqSlider { accent-color: #6F2DA8; }
+        #driveAmpSlider { accent-color: #6F2DA8; }
+
+        #pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.35);
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pause-overlay svg {
+            width: 100px;
+            height: 100px;
+            fill: #1e293b;
+            opacity: 0.15;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="control-group">
+        <button id="btnDisp" class="btn-disp inactive" title="Toggle Displacement Vector (d)" onclick="toggle('disp')">d</button>
+        <button id="btnVel" class="btn-vel inactive" title="Toggle Velocity Vector (v)" onclick="toggle('vel')">v</button>
+        <button id="btnAcc" class="btn-acc inactive" title="Toggle Acceleration Vector (a)" onclick="toggle('acc')">a</button>
+        <button id="btnDrive" class="btn-drive inactive" title="Toggle Forced Oscillation" onclick="toggle('drive')">F</button>
+        <button id="btnTrace" class="btn-trace inactive" title="Toggle Trace History (t)" onclick="toggle('trace')">t</button>
+        <button id="btnFriction" class="btn-fric" title="Toggle Friction (f)" onclick="toggle('friction')">f</button>
+    </div>
+    
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <button id="btnP" class="btn-sys inactive" title="Switch to Pendulum Mode (p)" onclick="setSystem('pendulum')">P</button>
+        <button id="btnS" class="btn-sys" title="Switch to Spring Mode (s)" onclick="setSystem('spring')">S</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <button id="btnR" class="btn-rot" title="Rotate Trace Axis (r)" onclick="toggleTraceDir()">R</button>
+        <button id="btnO" class="btn-rot inactive" title="Toggle Phasor Vector Origin (o)" onclick="togglePhasorStack()">O</button>
+        <button id="btnSplit" class="btn-rot inactive" title="Toggle Stacked Separate Axes (m)" onclick="toggleSplitAxes()">Ξ</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>FREQUENCY</span>
+            <span id="timeVal" style="color: #0ea5e9;">1.0x</span>
+        </div>
+        <input type="range" id="timeSlider" min="0.1" max="1.0" step="0.05" value="1.0" oninput="updateTimeScale(this.value)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>DRIVE FREQ</span>
+            <span id="driveFreqVal" style="color: #6F2DA8;">1.0 Hz</span>
+        </div>
+        <input type="range" id="driveFreqSlider" min="0.1" max="4.0" step="0.1" value="1.0" oninput="updateDriveFreq(this.value)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>DRIVE AMP</span>
+            <span id="driveAmpVal" style="color: #6F2DA8;">1.0x</span>
+        </div>
+        <input type="range" id="driveAmpSlider" min="0.0" max="2.5" step="0.1" value="1.0" oninput="updateDriveAmp(this.value)">
+    </div>
+</div>
+
+<div id="pause-overlay">
+    <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+</div>
+
+<canvas id="simCanvas"></canvas>
+
+<script>
+    const CONFIG = {
+        gravity: 0.5,        
+        dampingValue: 0.996,  
+        baseTraceSpeed: 2.2   
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const pauseOverlay = document.getElementById('pause-overlay');
+
+    const settings = {
+        disp: false,
+        vel: false,
+        acc: false,
+        drive: false,
+        trace: false,
+        friction: true,
+        timeScale: 1.0,
+        driveFreq: 1.0,
+        driveAmp: 1.0,
+        paused: false,
+        system: 'spring',
+        timeAxis: 'x',
+        phasorStacked: false,
+        splitAxes: false
+    };
+
+    let angle = 0;
+    let angleV = 0;
+    let angleA = 0;
+
+    let springY = 0;
+    let springVY = 0;
+    let springAY = 0;
+
+    let globalTime = 0;
+    let history = [];
+    let L = window.innerHeight * 0.45;
+
+    function toggle(key) {
+        settings[key] = !settings[key];
+        const btnId = 'btn' + key.charAt(0).toUpperCase() + key.slice(1);
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.toggle('inactive', !settings[key]);
+    }
+
+    function togglePause() {
+        settings.paused = !settings.paused;
+        pauseOverlay.style.display = settings.paused ? 'flex' : 'none';
+    }
+
+    function updateTimeScale(val) {
+        settings.timeScale = parseFloat(val);
+        document.getElementById('timeVal').innerText = settings.timeScale.toFixed(1) + 'x';
+    }
+
+    function updateDriveFreq(val) {
+        settings.driveFreq = parseFloat(val);
+        document.getElementById('driveFreqVal').innerText = settings.driveFreq.toFixed(1) + ' Hz';
+    }
+
+    function updateDriveAmp(val) {
+        settings.driveAmp = parseFloat(val);
+        document.getElementById('driveAmpVal').innerText = settings.driveAmp.toFixed(1) + 'x';
+    }
+
+    function toggleSplitAxes() {
+        settings.splitAxes = !settings.splitAxes;
+        const btn = document.getElementById('btnSplit');
+        if (btn) btn.classList.toggle('inactive', !settings.splitAxes);
+        history = [];
+    }
+
+    function setSystem(sys) {
+        settings.system = sys;
+        
+        const btnP = document.getElementById('btnP');
+        const btnS = document.getElementById('btnS');
+        
+        if (sys === 'pendulum') {
+            btnP.classList.remove('inactive');
+            btnS.classList.add('inactive');
+        } else {
+            btnS.classList.remove('inactive');
+            btnP.classList.add('inactive');
+        }
+
+        angle = 0; angleV = 0; angleA = 0;
+        springY = 0; springVY = 0; springAY = 0;
+        globalTime = 0;
+        history = [];
+    }
+
+    function toggleTraceDir() {
+        settings.timeAxis = settings.timeAxis === 'x' ? 'y' : 'x';
+        
+        const btnR = document.getElementById('btnR');
+        if (settings.timeAxis === 'x') {
+            btnR.classList.remove('inactive');
+        } else {
+            btnR.classList.add('inactive');
+        }
+        history = [];
+    }
+
+    function togglePhasorStack() {
+        settings.phasorStacked = !settings.phasorStacked;
+        const btnO = document.getElementById('btnO');
+        if (settings.phasorStacked) {
+            btnO.classList.remove('inactive');
+        } else {
+            btnO.classList.add('inactive');
+        }
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        L = Math.min(canvas.height * 0.35, canvas.width * 0.12);
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === " ") { e.preventDefault(); togglePause(); }
+        if (key === "d") toggle('disp');
+        if (key === "v") toggle('vel');
+        if (key === "a") toggle('acc');
+        if (key === "t") toggle('trace');
+        if (key === "f") toggle('friction');
+        if (key === "p") setSystem('pendulum');
+        if (key === "s") setSystem('spring');
+        if (key === "r") toggleTraceDir();
+        if (key === "o") togglePhasorStack();
+        if (key === "m") toggleSplitAxes();
+        
+        if (key === "arrowleft") if (settings.system === 'pendulum') angleV -= 0.002;
+        if (key === "arrowright") if (settings.system === 'pendulum') angleV += 0.002;
+        if (key === "arrowup") if (settings.system === 'spring') springVY -= 0.3;
+        if (key === "arrowdown") if (settings.system === 'spring') springVY += 0.3;
+        
+        if (key === "c") { 
+            angle = 0; angleV = 0; 
+            springY = 0; springVY = 0; 
+            globalTime = 0;
+            history = []; 
+        }
+    });
+
+    function drawGrid() {
+        ctx.save();
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        const minorStep = L / 5;
+        for (let x = 0; x <= canvas.width; x += minorStep) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += minorStep) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        for (let x = 0; x <= canvas.width; x += L) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += L) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawArrow(fromX, fromY, vecX, vecY, color, scale) {
+        const toX = fromX + vecX * scale;
+        const toY = fromY + vecY * scale;
+        const dist = Math.sqrt((toX - fromX) ** 2 + (toY - fromY) ** 2);
+        if (dist < 3) return;
+
+        const arrowAngle = Math.atan2(toY - fromY, toX - fromX);
+        const headlen = 22;
+        
+        const lineEndX = toX - 3 * Math.cos(arrowAngle);
+        const lineEndY = toY - 3 * Math.sin(arrowAngle);
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(lineEndX, lineEndY);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle - Math.PI / 6), toY - headlen * Math.sin(arrowAngle - Math.PI / 6));
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle + Math.PI / 6), toY - headlen * Math.sin(arrowAngle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function drawBlockyArrow(fromX, fromY, vecX, vecY, color, scale) {
+        const toX = fromX + vecX * scale;
+        const toY = fromY + vecY * scale;
+        const dist = Math.sqrt((toX - fromX) ** 2 + (toY - fromY) ** 2);
+        if (dist < 1) return;
+
+        const arrowAngle = Math.atan2(toY - fromY, toX - fromX);
+        const headlen = 24; 
+        const thickness = 10; 
+
+        const lineEndX = toX - headlen * Math.cos(arrowAngle);
+        const lineEndY = toY - headlen * Math.sin(arrowAngle);
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = thickness;
+        ctx.lineCap = 'butt'; 
+        ctx.lineJoin = 'miter'; 
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(lineEndX, lineEndY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        const base1X = lineEndX + (thickness * 1.5) * Math.cos(arrowAngle - Math.PI/2);
+        const base1Y = lineEndY + (thickness * 1.5) * Math.sin(arrowAngle - Math.PI/2);
+        const base2X = lineEndX + (thickness * 1.5) * Math.cos(arrowAngle + Math.PI/2);
+        const base2Y = lineEndY + (thickness * 1.5) * Math.sin(arrowAngle + Math.PI/2);
+        
+        ctx.lineTo(base1X, base1Y);
+        ctx.lineTo(base2X, base2Y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawSpring(startX, startY, endX, endY) {
+        const totalHeight = endY - startY;
+        const capHeight = 18;
+        const coils = 10;
+        const coilWidth = 16;
+        const springBodyHeight = totalHeight - capHeight * 2;
+        const segmentsPerCoil = 4;
+        const totalSegments = coils * segmentsPerCoil;
+        const segHeight = springBodyHeight / totalSegments;
+
+        ctx.save();
+        ctx.strokeStyle = '#b0bec5';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX, startY + capHeight);
+
+        let cy = startY + capHeight;
+        for (let i = 0; i < totalSegments; i++) {
+            const ny = cy + segHeight;
+            const side = (i % 2 === 0) ? coilWidth : -coilWidth;
+            ctx.lineTo(startX + side, cy + segHeight * 0.5);
+            ctx.lineTo(startX, ny);
+            cy = ny;
+        }
+
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function update() {
+        const phasorX = canvas.width * 0.16;
+        const pivotX = canvas.width * 0.40;
+        const pivotY = canvas.height * 0.25;
+        const trOriginX = canvas.width * 0.64;
+        const trOriginY = settings.timeAxis === 'x' ? pivotY + L : 150;
+
+        const omega = Math.sqrt(CONFIG.gravity / L);
+        const Sv = 1 / omega;
+        const Sa = 1 / (omega * omega);
+
+        let gDisp = 0, gVel = 0, gAcc = 0;
+        let driveForceVal = 0;
+
+        if (!settings.paused) {
+            const dt = settings.timeScale;
+            globalTime += 0.05; 
+            
+            if (settings.drive) {
+                driveForceVal = settings.driveAmp * Math.cos(settings.driveFreq * globalTime);
+            }
+            
+            if (settings.system === 'pendulum') {
+                angleA = (-CONFIG.gravity / L) * Math.sin(angle);
+                if (settings.drive) angleA += driveForceVal * 0.002;
+                
+                angleV += angleA * dt;
+                if (settings.friction) angleV *= Math.pow(CONFIG.dampingValue, dt);
+                angle += angleV * dt;
+
+                gDisp = L * Math.sin(angle);
+                gVel = (angleV * L * Math.cos(angle)) * Sv;
+                gAcc = (angleA * L * Math.cos(angle) - angleV * angleV * L * Math.sin(angle)) * Sa;
+            } else {
+                springAY = (-CONFIG.gravity / L) * springY;
+                if (settings.drive) springAY += driveForceVal * 0.3;
+                
+                springVY += springAY * dt;
+                if (settings.friction) springVY *= Math.pow(CONFIG.dampingValue, dt);
+                springY += springVY * dt;
+
+                gDisp = springY;
+                gVel = springVY * Sv;
+                gAcc = springAY * Sa;
+            }
+            
+            history.unshift({ disp: gDisp, vel: gVel, acc: gAcc, dt: dt });
+            if (history.length > 2500) history.pop();
+        } else if (history.length > 0) {
+            gDisp = history[0].disp;
+            gVel = history[0].vel;
+            gAcc = history[0].acc;
+            if (settings.drive) driveForceVal = settings.driveAmp * Math.cos(settings.driveFreq * globalTime);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+
+        // ── Phasor Section ─────────────────────────────────────────────────
+        const phasorY = pivotY + L; 
+
+        ctx.beginPath();
+        ctx.arc(phasorX, phasorY, L, 0, Math.PI * 2);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(phasorX - L - 10, phasorY);
+        ctx.lineTo(phasorX + L + 10, phasorY);
+        ctx.moveTo(phasorX, phasorY - L - 10);
+        ctx.lineTo(phasorX, phasorY + L + 10);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.stroke();
+
+        let dx, dy, vx, vy, ax, ay;
+
+        if (settings.system === 'spring') {
+            dx = -gVel; dy = gDisp;
+            vx = -gAcc; vy = gVel;
+            ax = gVel;  ay = gAcc; 
+        } else {
+            dx = gDisp; dy = gVel;
+            vx = gVel;  vy = gAcc;
+            ax = gAcc;  ay = -gVel;
+        }
+
+        let startD = { x: phasorX, y: phasorY };
+        let startTip = { x: phasorX + dx, y: phasorY + dy };
+        
+        let startV = settings.phasorStacked ? startTip : startD;
+        let startA = settings.phasorStacked ? startTip : startD;
+
+        if (settings.disp) drawArrow(startD.x, startD.y, dx, dy, '#FF7F00', 1.0);
+        if (settings.vel) drawArrow(startV.x, startV.y, vx, vy, '#00A86B', 1.0);
+        if (settings.acc) drawArrow(startA.x, startA.y, ax, ay, '#00A3E0', 1.0);
+
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.arc(phasorX, phasorY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Mechanism Section ──────────────────────────────────────────────
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(pivotX - 30, pivotY - 8, 60, 16);
+
+        if (settings.system === 'pendulum') {
+            const bx = pivotX + L * Math.sin(angle);
+            const by = pivotY + L * Math.cos(angle);
+            
+            ctx.strokeStyle = '#94a3b8'; 
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bx, by); ctx.stroke();
+            
+            ctx.fillStyle = '#b8c4cc';
+            ctx.beginPath(); ctx.arc(bx, by, 22, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#78909c'; ctx.lineWidth = 3; ctx.stroke();
+
+            if (settings.disp) drawArrow(pivotX, by, L * Math.sin(angle), 0, '#FF7F00', 1.0);
+            if (settings.vel) drawArrow(bx, by, angleV * L * Math.cos(angle), 0, '#00A86B', Sv);
+            if (settings.acc) drawArrow(bx, by, (angleA * L * Math.cos(angle) - angleV * angleV * L * Math.sin(angle)), 0, '#00A3E0', Sa);
+            
+            if (settings.drive) {
+                drawBlockyArrow(bx, by, driveForceVal * L * 0.4, 0, '#6F2DA8', 1.0);
+            }
+
+        } else {
+            const bx = pivotX;
+            const by = pivotY + L + springY;
+            drawSpring(pivotX, pivotY, bx, by - 22);
+
+            ctx.fillStyle = '#b8c4cc';
+            ctx.fillRect(bx - 22, by - 22, 44, 44);
+            ctx.strokeStyle = '#78909c'; ctx.lineWidth = 3; ctx.strokeRect(bx - 22, by - 22, 44, 44);
+
+            if (settings.disp) drawArrow(pivotX, pivotY + L, 0, springY, '#FF7F00', 1.0);
+            if (settings.vel) drawArrow(bx, by, 0, springVY, '#00A86B', Sv);
+            if (settings.acc) drawArrow(bx, by, 0, springAY, '#00A3E0', Sa);
+
+            if (settings.drive) {
+                drawBlockyArrow(bx, by, 0, driveForceVal * L * 0.4, '#6F2DA8', 1.0);
+            }
+        }
+
+        // ── Trace Section ──────────────────────────────────────────────────
+        if (settings.trace && history.length > 1) {
+            const cur = history[0];
+            const dirSign = settings.system === 'pendulum' ? -1 : 1;
+
+            let cx = trOriginX;
+            let cy = trOriginY;
+            ctx.lineWidth = 3.5;
+
+            // Separate dynamic baseline calculations
+            let yD = trOriginY, yV = trOriginY, yA = trOriginY;
+            let xD = trOriginX, xV = trOriginX, xA = trOriginX;
+
+            if (settings.splitAxes) {
+                if (settings.timeAxis === 'x') {
+                    const topMargin = 140;
+                    const availableH = canvas.height - topMargin - 40;
+                    const spacing = availableH / 3;
+                    yD = topMargin + spacing * 0.5;
+                    yV = topMargin + spacing * 1.5;
+                    yA = topMargin + spacing * 2.5;
+                } else {
+                    const availableW = canvas.width - trOriginX - 40;
+                    const trackW = availableW / 3;
+                    xD = trOriginX + trackW * 0.5;
+                    xV = trOriginX + trackW * 1.5;
+                    xA = trOriginX + trackW * 2.5;
+                }
+            }
+
+            // Draw Guidelines and Track Text Elements
+            if (settings.splitAxes) {
+                ctx.save();
+                ctx.font = "bold 11px 'Segoe UI', sans-serif";
+                ctx.setLineDash([4, 4]);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+
+                if (settings.timeAxis === 'x') {
+                    ctx.textAlign = "left";
+                    // Displacement track
+                    ctx.fillStyle = '#FF7F00';
+                    ctx.fillText("DISPLACEMENT (d)", trOriginX, yD - 45);
+                    ctx.beginPath(); ctx.moveTo(trOriginX, yD); ctx.lineTo(canvas.width - 20, yD); ctx.stroke();
+                    // Velocity track
+                    ctx.fillStyle = '#00A86B';
+                    ctx.fillText("VELOCITY (v)", trOriginX, yV - 45);
+                    ctx.beginPath(); ctx.moveTo(trOriginX, yV); ctx.lineTo(canvas.width - 20, yV); ctx.stroke();
+                    // Acceleration track
+                    ctx.fillStyle = '#00A3E0';
+                    ctx.fillText("ACCELERATION (a)", trOriginX, yA - 45);
+                    ctx.beginPath(); ctx.moveTo(trOriginX, yA); ctx.lineTo(canvas.width - 20, yA); ctx.stroke();
+                } else {
+                    ctx.textAlign = "center";
+                    // Displacement track
+                    ctx.fillStyle = '#FF7F00';
+                    ctx.fillText("DISP (d)", xD, trOriginY - 15);
+                    ctx.beginPath(); ctx.moveTo(xD, trOriginY); ctx.lineTo(xD, canvas.height - 20); ctx.stroke();
+                    // Velocity track
+                    ctx.fillStyle = '#00A86B';
+                    ctx.fillText("VEL (v)", xV, trOriginY - 15);
+                    ctx.beginPath(); ctx.moveTo(xV, trOriginY); ctx.lineTo(xV, canvas.height - 20); ctx.stroke();
+                    // Acceleration track
+                    ctx.fillStyle = '#00A3E0';
+                    ctx.fillText("ACC (a)", xA, trOriginY - 15);
+                    ctx.beginPath(); ctx.moveTo(xA, trOriginY); ctx.lineTo(xA, canvas.height - 20); ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // Loop and draw lines
+            for (let i = 0; i < history.length - 1; i++) {
+                const p1 = history[i];
+                const p2 = history[i + 1];
+                const step = p1.dt * CONFIG.baseTraceSpeed;
+
+                if (settings.timeAxis === 'x') {
+                    if (settings.disp) {
+                        ctx.strokeStyle = '#FF7F00';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, yD + dirSign * p1.disp);
+                        ctx.lineTo(cx + step, yD + dirSign * p2.disp);
+                        ctx.stroke();
+                    }
+                    if (settings.vel) {
+                        ctx.strokeStyle = '#00A86B';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, yV + dirSign * p1.vel);
+                        ctx.lineTo(cx + step, yV + dirSign * p2.vel);
+                        ctx.stroke();
+                    }
+                    if (settings.acc) {
+                        ctx.strokeStyle = '#00A3E0';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, yA + dirSign * p1.acc);
+                        ctx.lineTo(cx + step, yA + dirSign * p2.acc);
+                        ctx.stroke();
+                    }
+                    cx += step;
+                    if (cx > canvas.width - 20) break;
+                } else {
+                    if (settings.disp) {
+                        ctx.strokeStyle = '#FF7F00';
+                        ctx.beginPath();
+                        ctx.moveTo(xD + p1.disp, cy);
+                        ctx.lineTo(xD + p2.disp, cy + step);
+                        ctx.stroke();
+                    }
+                    if (settings.vel) {
+                        ctx.strokeStyle = '#00A86B';
+                        ctx.beginPath();
+                        ctx.moveTo(xV + p1.vel, cy);
+                        ctx.lineTo(xV + p2.vel, cy + step);
+                        ctx.stroke();
+                    }
+                    if (settings.acc) {
+                        ctx.strokeStyle = '#00A3E0';
+                        ctx.beginPath();
+                        ctx.moveTo(xA + p1.acc, cy);
+                        ctx.lineTo(xA + p2.acc, cy + step);
+                        ctx.stroke();
+                    }
+                    cy += step;
+                    if (cy > canvas.height - 20) break;
+                }
+            }
+
+            // Real-time Moving Value Origin Dots/Vectors
+            if (settings.timeAxis === 'x') {
+                if (settings.disp) drawArrow(trOriginX, yD, 0, dirSign * cur.disp, '#FF7F00', 1.0);
+                if (settings.vel) drawArrow(trOriginX, yV, 0, dirSign * cur.vel, '#00A86B', 1.0);
+                if (settings.acc) drawArrow(trOriginX, yA, 0, dirSign * cur.acc, '#00A3E0', 1.0);
+                
+                ctx.fillStyle = '#475569';
+                ctx.beginPath(); ctx.arc(trOriginX, yD, 5, 0, Math.PI * 2); ctx.fill();
+                if (settings.splitAxes) {
+                    ctx.beginPath(); ctx.arc(trOriginX, yV, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(trOriginX, yA, 5, 0, Math.PI * 2); ctx.fill();
+                }
+            } else {
+                if (settings.disp) drawArrow(xD, trOriginY, cur.disp, 0, '#FF7F00', 1.0);
+                if (settings.vel) drawArrow(xV, trOriginY, cur.vel, 0, '#00A86B', 1.0);
+                if (settings.acc) drawArrow(xA, trOriginY, cur.acc, 0, '#00A3E0', 1.0);
+                
+                ctx.fillStyle = '#475569';
+                ctx.beginPath(); ctx.arc(xD, trOriginY, 5, 0, Math.PI * 2); ctx.fill();
+                if (settings.splitAxes) {
+                    ctx.beginPath(); ctx.arc(xV, trOriginY, 5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(xA, trOriginY, 5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        } else if (settings.trace) {
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.arc(trOriginX, trOriginY, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    update();
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === '0') {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable) {
+                return;
+            }
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen()
+                    .catch((err) => {
+                        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    });
+</script>
+</body>
+</html>

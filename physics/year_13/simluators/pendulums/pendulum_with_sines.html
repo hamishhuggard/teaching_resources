@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase Trace Physics Simulator</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #1e293b;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 8px 16px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+            border: 1px solid #e2e8f0;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: #e2e8f0;
+        }
+
+        button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-weight: 700;
+            font-size: 17px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:active { transform: scale(0.92); }
+
+        .btn-disp { background: #e0f2fe; color: #0369a1; border: 1px solid #0ea5e9; }
+        .btn-vel { background: #fef2f2; color: #b91c1c; border: 1px solid #ef4444; }
+        .btn-acc { background: #f0fdf4; color: #15803d; border: 1px solid #22c55e; }
+        .btn-trace { background: #f8fafc; color: #475569; border: 1px solid #64748b; }
+        .btn-fric { background: #fff7ed; color: #9a3412; border: 1px solid #f97316; }
+
+        .btn-sys {
+            background: #faf5ff; 
+            color: #6b21a8; 
+            border: 1px solid #d8b4fe;
+            font-family: 'Segoe UI', sans-serif !important;
+            font-style: normal !important;
+            font-weight: 700 !important;
+        }
+        .btn-rot {
+            background: #f0fdfa; 
+            color: #0f766e; 
+            border: 1px solid #5eead4;
+            font-family: 'Segoe UI', sans-serif !important;
+            font-style: normal !important;
+            font-weight: 700 !important;
+        }
+
+        button.inactive {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #cbd5e1;
+            opacity: 0.45;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding-left: 4px;
+        }
+
+        .slider-label {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+            min-width: 60px;
+        }
+
+        input[type=range] {
+            width: 80px;
+            cursor: pointer;
+            accent-color: #64748b;
+        }
+
+        #pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.35);
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pause-overlay svg {
+            width: 100px;
+            height: 100px;
+            fill: #1e293b;
+            opacity: 0.15;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="control-group">
+        <button id="btnDisp" class="btn-disp inactive" title="Toggle Displacement Vector (d)" onclick="toggle('disp')">d</button>
+        <button id="btnVel" class="btn-vel inactive" title="Toggle Velocity Vector (v)" onclick="toggle('vel')">v</button>
+        <button id="btnAcc" class="btn-acc inactive" title="Toggle Acceleration Vector (a)" onclick="toggle('acc')">a</button>
+        <button id="btnTrace" class="btn-trace inactive" title="Toggle Trace History (t)" onclick="toggle('trace')">t</button>
+        <button id="btnFriction" class="btn-fric" title="Toggle Friction (f)" onclick="toggle('friction')">f</button>
+    </div>
+    
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <button id="btnP" class="btn-sys inactive" title="Switch to Pendulum Mode (p)" onclick="setSystem('pendulum')">P</button>
+        <button id="btnS" class="btn-sys" title="Switch to Spring Mode (s)" onclick="setSystem('spring')">S</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <button id="btnR" class="btn-rot" title="Rotate Trace Axis (r)" onclick="toggleTraceDir()">R</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>TIME SCALE</span>
+            <span id="timeVal" style="color: #0ea5e9;">1.0x</span>
+        </div>
+        <input type="range" id="timeSlider" min="0.1" max="1.0" step="0.05" value="1.0" oninput="updateTimeScale(this.value)">
+    </div>
+</div>
+
+<div id="pause-overlay">
+    <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+</div>
+
+<canvas id="simCanvas"></canvas>
+
+<script>
+    const CONFIG = {
+        gravity: 0.5,        
+        dampingValue: 0.996,  
+        baseTraceSpeed: 2.2   
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const pauseOverlay = document.getElementById('pause-overlay');
+
+    const settings = {
+        disp: false,
+        vel: false,
+        acc: false,
+        trace: false,
+        friction: true,
+        timeScale: 1.0,
+        paused: false,
+        system: 'spring',
+        timeAxis: 'x'
+    };
+
+    let angle = 0;
+    let angleV = 0;
+    let angleA = 0;
+
+    let springY = 0;
+    let springVY = 0;
+    let springAY = 0;
+
+    let history = [];
+    let L = window.innerHeight * 0.45;
+
+    function toggle(key) {
+        settings[key] = !settings[key];
+        const btnId = 'btn' + key.charAt(0).toUpperCase() + key.slice(1);
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.toggle('inactive', !settings[key]);
+    }
+
+    function togglePause() {
+        settings.paused = !settings.paused;
+        pauseOverlay.style.display = settings.paused ? 'flex' : 'none';
+    }
+
+    function updateTimeScale(val) {
+        settings.timeScale = parseFloat(val);
+        document.getElementById('timeVal').innerText = settings.timeScale.toFixed(1) + 'x';
+    }
+
+    function setSystem(sys) {
+        settings.system = sys;
+        
+        const btnP = document.getElementById('btnP');
+        const btnS = document.getElementById('btnS');
+        
+        if (sys === 'pendulum') {
+            btnP.classList.remove('inactive');
+            btnS.classList.add('inactive');
+        } else {
+            btnS.classList.remove('inactive');
+            btnP.classList.add('inactive');
+        }
+
+        angle = 0; angleV = 0; angleA = 0;
+        springY = 0; springVY = 0; springAY = 0;
+        history = [];
+    }
+
+    function toggleTraceDir() {
+        settings.timeAxis = settings.timeAxis === 'x' ? 'y' : 'x';
+        
+        const btnR = document.getElementById('btnR');
+        if (settings.timeAxis === 'x') {
+            btnR.classList.remove('inactive');
+        } else {
+            btnR.classList.add('inactive');
+        }
+        history = [];
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        L = Math.min(canvas.height * 0.40, canvas.width * 0.20);
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === " ") { e.preventDefault(); togglePause(); }
+        if (key === "d") toggle('disp');
+        if (key === "v") toggle('vel');
+        if (key === "a") toggle('acc');
+        if (key === "t") toggle('trace');
+        if (key === "f") toggle('friction');
+        if (key === "p") setSystem('pendulum');
+        if (key === "s") setSystem('spring');
+        if (key === "r") toggleTraceDir();
+        
+        if (key === "arrowleft") if (settings.system === 'pendulum') angleV -= 0.002;
+        if (key === "arrowright") if (settings.system === 'pendulum') angleV += 0.002;
+        if (key === "arrowup") if (settings.system === 'spring') springVY -= 0.3;
+        if (key === "arrowdown") if (settings.system === 'spring') springVY += 0.3;
+        
+        if (key === "c") { 
+            angle = 0; angleV = 0; 
+            springY = 0; springVY = 0; 
+            history = []; 
+        }
+    });
+
+    function drawGrid() {
+        ctx.save();
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        const minorStep = L / 5;
+        for (let x = 0; x <= canvas.width; x += minorStep) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += minorStep) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        for (let x = 0; x <= canvas.width; x += L) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += L) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // Draw a vector arrow — thicker line, bigger head
+    function drawArrow(fromX, fromY, vecX, vecY, color, scale) {
+        const toX = fromX + vecX * scale;
+        const toY = fromY + vecY * scale;
+        const dist = Math.sqrt((toX - fromX) ** 2 + (toY - fromY) ** 2);
+        if (dist < 3) return;
+
+        const arrowAngle = Math.atan2(toY - fromY, toX - fromX);
+        const headlen = 22;
+        
+        const lineEndX = toX - 3 * Math.cos(arrowAngle);
+        const lineEndY = toY - 3 * Math.sin(arrowAngle);
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(lineEndX, lineEndY);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle - Math.PI / 6), toY - headlen * Math.sin(arrowAngle - Math.PI / 6));
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle + Math.PI / 6), toY - headlen * Math.sin(arrowAngle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    // Proper zigzag coil spring
+    function drawSpring(startX, startY, endX, endY) {
+        const totalHeight = endY - startY;
+        const capHeight = 18;
+        const coils = 10;
+        const coilWidth = 16;
+        const springBodyHeight = totalHeight - capHeight * 2;
+        const segmentsPerCoil = 4; // two zigs + two zags per coil
+        const totalSegments = coils * segmentsPerCoil;
+        const segHeight = springBodyHeight / totalSegments;
+
+        ctx.save();
+        ctx.strokeStyle = '#b0bec5';
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+
+        // Top straight cap
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX, startY + capHeight);
+
+        // Zigzag body — alternating right and left peaks
+        let cy = startY + capHeight;
+        for (let i = 0; i < totalSegments; i++) {
+            const ny = cy + segHeight;
+            // Odd segments go right, even go left
+            const side = (i % 2 === 0) ? coilWidth : -coilWidth;
+            ctx.lineTo(startX + side, cy + segHeight * 0.5);
+            ctx.lineTo(startX, ny);
+            cy = ny;
+        }
+
+        // Bottom straight cap
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function update() {
+        const pivotX = canvas.width * 0.22;
+        const pivotY = canvas.height * 0.25;
+        
+        const trOriginX = canvas.width * 0.46;
+        const trOriginY = settings.timeAxis === 'x' ? pivotY + L : 150;
+
+        const omega = Math.sqrt(CONFIG.gravity / L);
+        const Sv = 1 / omega;
+        const Sa = 1 / (omega * omega);
+
+        if (!settings.paused) {
+            const dt = settings.timeScale;
+            let gDisp, gVel, gAcc;
+
+            if (settings.system === 'pendulum') {
+                angleA = (-CONFIG.gravity / L) * Math.sin(angle);
+                angleV += angleA * dt;
+                if (settings.friction) angleV *= Math.pow(CONFIG.dampingValue, dt);
+                angle += angleV * dt;
+
+                gDisp = L * Math.sin(angle);
+                gVel = (angleV * L * Math.cos(angle)) * Sv;
+                gAcc = (angleA * L * Math.cos(angle) - angleV * angleV * L * Math.sin(angle)) * Sa;
+            } else {
+                springAY = (-CONFIG.gravity / L) * springY;
+                springVY += springAY * dt;
+                if (settings.friction) springVY *= Math.pow(CONFIG.dampingValue, dt);
+                springY += springVY * dt;
+
+                gDisp = springY;
+                gVel = springVY * Sv;
+                gAcc = springAY * Sa;
+            }
+            
+            history.unshift({ disp: gDisp, vel: gVel, acc: gAcc, dt: dt });
+            if (history.length > 2500) history.pop();
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+
+        // Pivot anchor bar
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(pivotX - 30, pivotY - 8, 60, 16);
+
+        if (settings.system === 'pendulum') {
+            const bx = pivotX + L * Math.sin(angle);
+            const by = pivotY + L * Math.cos(angle);
+            
+            // Pendulum cord — lighter
+            ctx.strokeStyle = '#94a3b8'; 
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bx, by); ctx.stroke();
+            
+            // Pendulum bob — lighter grey
+            ctx.fillStyle = '#b8c4cc';
+            ctx.beginPath(); ctx.arc(bx, by, 22, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#78909c'; ctx.lineWidth = 3; ctx.stroke();
+
+            if (settings.disp) drawArrow(pivotX, by, L * Math.sin(angle), 0, '#0ea5e9', 1.0);
+            if (settings.vel) drawArrow(bx, by, angleV * L * Math.cos(angle), 0, '#ef4444', Sv);
+            if (settings.acc) drawArrow(bx, by, (angleA * L * Math.cos(angle) - angleV * angleV * L * Math.sin(angle)), 0, '#22c55e', Sa);
+
+        } else {
+            const bx = pivotX;
+            const by = pivotY + L + springY;
+            drawSpring(pivotX, pivotY, bx, by - 22);
+
+            // Mass block — lighter grey
+            ctx.fillStyle = '#b8c4cc';
+            ctx.fillRect(bx - 22, by - 22, 44, 44);
+            ctx.strokeStyle = '#78909c'; ctx.lineWidth = 3; ctx.strokeRect(bx - 22, by - 22, 44, 44);
+
+            if (settings.disp) drawArrow(pivotX, pivotY + L, 0, springY, '#0ea5e9', 1.0);
+            if (settings.vel) drawArrow(bx, by, 0, springVY, '#ef4444', Sv);
+            if (settings.acc) drawArrow(bx, by, 0, springAY, '#22c55e', Sa);
+        }
+
+        // ── Trace section ──────────────────────────────────────────────────
+        if (settings.trace && history.length > 1) {
+
+            // Get current values from the freshest history entry
+            const cur = history[0];
+
+            // Direction sign for pendulum horizontal traces
+            const dirSign = settings.system === 'pendulum' ? -1 : 1;
+
+            // ── Trailing sine curves ─────────────────────────────────────
+            // We draw the historical path FIRST (underneath the arrows)
+            // The "arrowhead" of each active vector sits exactly at the
+            // current tip — we draw it as part of the arrow below.
+
+            let cx = trOriginX;
+            let cy = trOriginY;
+            ctx.lineWidth = 3.5;
+
+            for (let i = 0; i < history.length - 1; i++) {
+                const p1 = history[i];
+                const p2 = history[i + 1];
+                const step = p1.dt * CONFIG.baseTraceSpeed;
+
+                if (settings.timeAxis === 'x') {
+                    if (settings.disp) {
+                        ctx.strokeStyle = '#0ea5e9';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, trOriginY + dirSign * p1.disp);
+                        ctx.lineTo(cx + step, trOriginY + dirSign * p2.disp);
+                        ctx.stroke();
+                    }
+                    if (settings.vel) {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, trOriginY + dirSign * p1.vel);
+                        ctx.lineTo(cx + step, trOriginY + dirSign * p2.vel);
+                        ctx.stroke();
+                    }
+                    if (settings.acc) {
+                        ctx.strokeStyle = '#22c55e';
+                        ctx.beginPath();
+                        ctx.moveTo(cx, trOriginY + dirSign * p1.acc);
+                        ctx.lineTo(cx + step, trOriginY + dirSign * p2.acc);
+                        ctx.stroke();
+                    }
+                    cx += step;
+                    if (cx > canvas.width - 20) break;
+                } else {
+                    if (settings.disp) {
+                        ctx.strokeStyle = '#0ea5e9';
+                        ctx.beginPath();
+                        ctx.moveTo(trOriginX + p1.disp, cy);
+                        ctx.lineTo(trOriginX + p2.disp, cy + step);
+                        ctx.stroke();
+                    }
+                    if (settings.vel) {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.beginPath();
+                        ctx.moveTo(trOriginX + p1.vel, cy);
+                        ctx.lineTo(trOriginX + p2.vel, cy + step);
+                        ctx.stroke();
+                    }
+                    if (settings.acc) {
+                        ctx.strokeStyle = '#22c55e';
+                        ctx.beginPath();
+                        ctx.moveTo(trOriginX + p1.acc, cy);
+                        ctx.lineTo(trOriginX + p2.acc, cy + step);
+                        ctx.stroke();
+                    }
+                    cy += step;
+                    if (cy > canvas.height - 20) break;
+                }
+            }
+
+            // ── Origin dot ───────────────────────────────────────────────
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.arc(trOriginX, trOriginY, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ── Live vectors from origin dot ─────────────────────────────
+            // Each vector points from the origin toward the current tip
+            // of its sine curve. The arrowhead IS the leading point of
+            // the drawn curve, so we skip drawing it again in the loop.
+            if (settings.timeAxis === 'x') {
+                // Vectors are vertical (perpendicular to time axis)
+                // Displacement
+                if (settings.disp) {
+                    drawArrow(trOriginX, trOriginY, 0, dirSign * cur.disp, '#0ea5e9', 1.0);
+                }
+                // Velocity
+                if (settings.vel) {
+                    drawArrow(trOriginX, trOriginY, 0, dirSign * cur.vel, '#ef4444', 1.0);
+                }
+                // Acceleration
+                if (settings.acc) {
+                    drawArrow(trOriginX, trOriginY, 0, dirSign * cur.acc, '#22c55e', 1.0);
+                }
+            } else {
+                // Vectors are horizontal (perpendicular to time axis)
+                if (settings.disp) {
+                    drawArrow(trOriginX, trOriginY, cur.disp, 0, '#0ea5e9', 1.0);
+                }
+                if (settings.vel) {
+                    drawArrow(trOriginX, trOriginY, cur.vel, 0, '#ef4444', 1.0);
+                }
+                if (settings.acc) {
+                    drawArrow(trOriginX, trOriginY, cur.acc, 0, '#22c55e', 1.0);
+                }
+            }
+        } else if (settings.trace) {
+            // Just draw the origin dot even with no history
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.arc(trOriginX, trOriginY, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    resize();
+    update();
+
+
+// fullscreen
+document.addEventListener('keydown', (event) => {
+  // Check if the pressed key is '0'
+    if (event.key === '0') {
+    
+    // Don't trigger if the user is typing in an input or textarea
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable) {
+      return;
+    }
+
+    if (!document.fullscreenElement) {
+      // If no element is in fullscreen, request fullscreen on the whole page
+      document.documentElement.requestFullscreen()
+        .catch((err) => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+      // If already fullscreen, exit it
+      document.exitFullscreen();
+    }
+  }
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase Trace Pendulum Simulator</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(4px);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10;
+            border: 1px solid #eee;
+            min-width: 180px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: row;
+            gap: 6px;
+            align-items: center;
+        }
+
+        button {
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:active { transform: scale(0.92); }
+
+        .btn-disp { background: #e0f2fe; color: #0369a1; border: 1px solid #0ea5e9; }
+        .btn-vel { background: #fef2f2; color: #b91c1c; border: 1px solid #ef4444; }
+        .btn-acc { background: #f0fdf4; color: #15803d; border: 1px solid #22c55e; }
+        .btn-trace { background: #f8fafc; color: #475569; border: 1px solid #64748b; }
+        .btn-fric { background: #fff7ed; color: #9a3412; border: 1px solid #f97316; }
+
+        button.inactive {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #cbd5e1;
+            opacity: 0.4;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 4px 2px;
+        }
+
+        .slider-label {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-size: 14px;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        #pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.3);
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #pause-overlay svg {
+            width: 120px;
+            height: 120px;
+            fill: #1e293b;
+            opacity: 0.15;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="control-group">
+        <button id="btnDisp" class="btn-disp inactive" title="Displacement (d)" onclick="toggle('disp')">d</button>
+        <button id="btnVel" class="btn-vel inactive" title="Velocity (v)" onclick="toggle('vel')">v</button>
+        <button id="btnAcc" class="btn-acc inactive" title="Acceleration (a)" onclick="toggle('acc')">a</button>
+        <button id="btnTrace" class="btn-trace inactive" title="Trace History (t)" onclick="toggle('trace')">t</button>
+        <button id="btnFriction" class="btn-fric" title="Friction (f)" onclick="toggle('friction')">f</button>
+    </div>
+   
+    <div class="slider-container">
+        <div class="slider-label">
+            <span>time scale</span>
+            <span id="timeVal">1.0x</span>
+        </div>
+        <input type="range" id="timeSlider" min="0.1" max="1.0" step="0.05" value="1.0" oninput="updateTimeScale(this.value)">
+    </div>
+</div>
+
+<div id="pause-overlay">
+    <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+</div>
+
+<canvas id="simCanvas"></canvas>
+
+<script>
+    const CONFIG = {
+        gravity: 0.5,        
+        dampingValue: 0.996,  
+        baseTraceSpeed: 1.8,  
+        traceScaleVel: 20,    
+        traceScaleAcc: 450    
+    };
+
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const pauseOverlay = document.getElementById('pause-overlay');
+
+    const settings = {
+        disp: false,
+        vel: false,
+        acc: false,
+        trace: false,
+        friction: true,
+        timeScale: 1.0,
+        paused: false
+    };
+
+    let angle = 0;
+    let angleV = 0;
+    let angleA = 0;
+    let history = [];
+    let L = window.innerWidth / 4;
+
+    function toggle(key) {
+        settings[key] = !settings[key];
+        const btnId = 'btn' + key.charAt(0).toUpperCase() + key.slice(1);
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.toggle('inactive', !settings[key]);
+    }
+
+    function togglePause() {
+        settings.paused = !settings.paused;
+        pauseOverlay.style.display = settings.paused ? 'flex' : 'none';
+    }
+
+    function updateTimeScale(val) {
+        settings.timeScale = parseFloat(val);
+        document.getElementById('timeVal').innerText = settings.timeScale.toFixed(2) + 'x';
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        L = canvas.width / 4;
+    }
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === " ") { e.preventDefault(); togglePause(); }
+        if (key === "d") toggle('disp');
+        if (key === "v") toggle('vel');
+        if (key === "a") toggle('acc');
+        if (key === "t") toggle('trace');
+        if (key === "f") toggle('friction');
+        if (key === "arrowleft") angleV -= 0.025;
+        if (key === "arrowright") angleV += 0.025;
+        if (key === "r") { angle = 0; angleV = 0; history = []; }
+    });
+
+    function drawGrid() {
+        ctx.save();
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        const minorStep = L / 5;
+        for (let x = 0; x <= canvas.width; x += minorStep) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += minorStep) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 2;
+        for (let x = 0; x <= canvas.width; x += L) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y <= canvas.height; y += L) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawArrow(fromX, fromY, vecX, vecY, color, scale) {
+        const toX = fromX + vecX * scale;
+        const toY = fromY + vecY * scale;
+        const dist = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+        if (dist < 4) return;
+
+        const arrowAngle = Math.atan2(toY - fromY, toX - fromX);
+        const headlen = 10;
+       
+        // Shorten the main line slightly so the stroke doesn't peak through the tip
+        const lineEndX = toX - 2 * Math.cos(arrowAngle);
+        const lineEndY = toY - 2 * Math.sin(arrowAngle);
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(lineEndX, lineEndY);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'butt';
+        ctx.stroke();
+
+        // Arrowhead triangle
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle - Math.PI / 7), toY - headlen * Math.sin(arrowAngle - Math.PI / 7));
+        ctx.lineTo(toX - headlen * Math.cos(arrowAngle + Math.PI / 7), toY - headlen * Math.sin(arrowAngle + Math.PI / 7));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function update() {
+        const pivotX = L;
+        const pivotY = L;
+        const eqX = L;
+        const eqY = 2 * L;
+        const vectorOriginX = 3 * L;
+        const vectorOriginY = L;
+
+        if (!settings.paused) {
+            const dt = settings.timeScale;
+            angleA = (-CONFIG.gravity / L) * Math.sin(angle);
+            angleV += angleA * dt;
+            if (settings.friction) {
+                angleV *= Math.pow(CONFIG.dampingValue, dt);
+            }
+            angle += angleV * dt;
+           
+            history.unshift({
+                x: (pivotX + L * Math.sin(angle)) - eqX,
+                vx: (Math.cos(angle) * angleV) * L * CONFIG.traceScaleVel,
+                ax: (Math.cos(angle) * angleA) * L * CONFIG.traceScaleAcc,
+                dtAtStep: dt
+            });
+            if (history.length > 2000) history.pop();
+        }
+
+        const bx = pivotX + L * Math.sin(angle);
+        const by = pivotY + L * Math.cos(angle);
+
+        const dispX = bx - eqX;
+        const dispY = by - eqY;
+        const vX = Math.cos(angle) * angleV;
+        const vY = -Math.sin(angle) * angleV;
+        const aX = Math.cos(angle) * angleA;
+        const aY = -Math.sin(angle) * angleA;
+
+        const targetMagnitude = L * 0.8;
+        const maxV = Math.sqrt(2 * CONFIG.gravity / L * (1 - Math.cos(Math.PI/3)));
+        const velScale = targetMagnitude / (maxV || 0.001);
+        const accScale = targetMagnitude / (CONFIG.gravity / L);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawGrid();
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(pivotX - 20, pivotY - 5, 40, 5);
+       
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bx, by); ctx.stroke();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath(); ctx.arc(bx, by, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+        ctx.fillStyle = '#334155';
+        ctx.beginPath(); ctx.arc(vectorOriginX, vectorOriginY, 4, 0, Math.PI * 2); ctx.fill();
+
+        if (settings.disp) {
+            drawArrow(eqX, eqY, dispX, dispY, '#0ea5e9', 1.0);
+            drawArrow(vectorOriginX, vectorOriginY, dispX, dispY, '#0ea5e9', 1.0);
+        }
+        if (settings.vel) {
+            drawArrow(bx, by, vX, vY, '#ef4444', velScale);
+            drawArrow(vectorOriginX, vectorOriginY, vX, vY, '#ef4444', velScale);
+        }
+        if (settings.acc) {
+            drawArrow(bx, by, aX, aY, '#22c55e', accScale);
+            drawArrow(vectorOriginX, vectorOriginY, aX, aY, '#22c55e', accScale);
+        }
+
+        if (settings.trace) {
+            let currentY_P = eqY;
+            let currentY_V = vectorOriginY;
+
+            for (let i = 0; i < history.length - 1; i++) {
+                const p1 = history[i];
+                const p2 = history[i+1];
+                const stepY = p1.dtAtStep * CONFIG.baseTraceSpeed;
+
+                ctx.globalAlpha = Math.max(0, 1 - i / history.length);
+                ctx.lineWidth = 2.5;
+
+                if (settings.disp) {
+                    ctx.strokeStyle = '#0ea5e9';
+                    ctx.beginPath(); ctx.moveTo(eqX + p1.x, currentY_P); ctx.lineTo(eqX + p2.x, currentY_P + stepY); ctx.stroke();
+                }
+                if (settings.disp) {
+                    ctx.strokeStyle = '#0ea5e9';
+                    ctx.beginPath(); ctx.moveTo(vectorOriginX + p1.x, currentY_V); ctx.lineTo(vectorOriginX + p2.x, currentY_V + stepY); ctx.stroke();
+                }
+                if (settings.vel) {
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.beginPath(); ctx.moveTo(vectorOriginX + p1.vx, currentY_V); ctx.lineTo(vectorOriginX + p2.vx, currentY_V + stepY); ctx.stroke();
+                }
+                if (settings.acc) {
+                    ctx.strokeStyle = '#22c55e';
+                    ctx.beginPath(); ctx.moveTo(vectorOriginX + p1.ax, currentY_V); ctx.lineTo(vectorOriginX + p2.ax, currentY_V + stepY); ctx.stroke();
+                }
+
+                currentY_P += stepY;
+                currentY_V += stepY;
+                if (currentY_P > canvas.height && currentY_V > canvas.height) break;
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    resize();
+    update();
+</script>
+</body>
+</html>
