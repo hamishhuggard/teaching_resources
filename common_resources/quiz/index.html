@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Quiz Player</title>
+    <!-- Tailwind for layout, KaTeX for LaTeX rendering -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- PapaParse for CSV handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: white;
+            color: black;
+        }
+
+        /* Top Header Styles */
+        .app-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 40px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            z-index: 50;
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .donut-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .donut-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: rotate(-90deg);
+        }
+        .content-area {
+            z-index: 10;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        /* Centered Stack for Q&A */
+        .qa-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 90%;
+            gap: 1rem;
+        }
+
+        .media-container {
+            max-width: 100%;
+            max-height: 50vh;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .media-container img {
+            max-width: 100%;
+            max-height: 50vh;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .countdown-pill {
+            position: absolute;
+            top: 10px; 
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ef4444;
+            color: white;
+            padding: 2px 12px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            min-width: 48px;
+            text-align: center;
+            z-index: 20;
+        }
+
+        /* Footer Layout */
+        .app-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: white;
+            border-top: 1px solid #f3f4f6;
+            z-index: 50;
+        }
+
+        .control-btn {
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            color: #d1d5db; /* gray-300 */
+        }
+        .control-btn:hover {
+            background-color: #f9fafb;
+            color: #9ca3af; /* gray-400 */
+        }
+        .control-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Progress Slider Footer Styles */
+        .slider-wrapper {
+            flex-grow: 1;
+            position: relative;
+            height: 36px;
+            display: flex;
+            align-items: center;
+        }
+        .slider-container {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            display: flex;
+            align-items: center;
+            background: #f3f4f6;
+            border-radius: 2px;
+        }
+        #seek-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: transparent; 
+            outline: none;
+            position: relative;
+            z-index: 2;
+            cursor: pointer;
+        }
+        #seek-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border-radius: 50%;
+        }
+        #seek-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: none;
+        }
+        .slider-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background-color: #fca5a5;
+            border-radius: 2px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .answer-text {
+            color: #4b5563;
+            transition: opacity 0.2s ease;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center pb-16 pt-16">
+
+    <!-- Global Header -->
+    <header class="app-header">
+        <!-- Darkened text shades for better visibility -->
+        <div id="current-date" class="text-gray-500 font-medium text-sm"></div>
+        <div class="header-center">
+            <span id="q-number" class="text-gray-500 font-bold text-xs tracking-widest uppercase">QUESTION 1</span>
+            <span id="q-total" class="text-gray-400 font-bold text-xs tracking-widest uppercase">OF 10</span>
+        </div>
+        <div></div>
+    </header>
+
+    <div id="status" class="absolute top-16 text-sm text-gray-400">Loading CSV...</div>
+
+    <!-- Main Display -->
+    <div class="flex-grow flex flex-col items-center justify-center w-full">
+        <div class="donut-container">
+            <svg class="donut-svg" width="450" height="450" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" stroke="#f3f4f6" stroke-width="3" fill="transparent" />
+                <circle id="progress-circle" cx="50" cy="50" r="45" stroke="#ef4444" stroke-width="3" fill="transparent" 
+                        stroke-dasharray="282.7" stroke-dashoffset="282.7" stroke-linecap="round" />
+            </svg>
+            
+            <div class="content-area">
+                <div class="qa-stack">
+                    <div class="flex flex-col items-center">
+                        <div id="display-question" class="text-2xl font-medium"></div>
+                        <div id="q-media" class="media-container hidden"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div id="display-answer" class="answer-text text-xl"></div>
+                        <div id="a-media" class="media-container hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="countdown-timer" class="countdown-pill hidden">0</div>
+        </div>
+    </div>
+
+    <!-- Footer Controls -->
+    <footer class="app-footer">
+        <div class="flex items-center gap-1">
+            <button id="btn-prev" class="control-btn" title="Previous">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <button id="btn-play" class="control-btn" title="Play/Pause">
+                <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="pause-icon" class="hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button id="btn-next" class="control-btn" title="Next">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+        </div>
+
+        <div class="slider-wrapper">
+            <div class="slider-container">
+                <div id="slider-fill" class="slider-fill"></div>
+                <input id="seek-slider" type="range" min="0" max="0" value="0">
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        //const CSV_URL = 'https://docs.google.com/spreadsheets/d/1BBh_Fvx4928rxLv788uNNm6Aym8hlVhf6vwvNlEhQYk/export?format=csv&gid=0&single=true';
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/1BBh_Fvx4928rxLv788uNNm6Aym8hlVhf6vwvNlEhQYk/export?format=csv&gid=444158396&single=true';
+        //const CSV_URL = 'https://docs.google.com/spreadsheets/d/1BBh_Fvx4928rxLv788uNNm6Aym8hlVhf6vwvNlEhQYk/export?format=csv&gid=1815552982&single=true';
+        //const CSV_URL = 'https://docs.google.com/spreadsheets/d/1BBh_Fvx4928rxLv788uNNm6Aym8hlVhf6vwvNlEhQYk/export?format=csv&gid=1383203407&single=true';
+
+        let items = []; 
+        let currentIndex = 0;
+        let isPlaying = false;
+        let lastTimestamp = 0;
+        let currentTimer = 0;
+        let requestId = null;
+
+        const displayQ = document.getElementById('display-question');
+        const displayA = document.getElementById('display-answer');
+        const qMedia = document.getElementById('q-media');
+        const aMedia = document.getElementById('a-media');
+        const qNumberEl = document.getElementById('q-number');
+        const qTotalEl = document.getElementById('q-total');
+        const progressCircle = document.getElementById('progress-circle');
+        const countdownTimerEl = document.getElementById('countdown-timer');
+        const btnPlay = document.getElementById('btn-play');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const seekSlider = document.getElementById('seek-slider');
+        const sliderFill = document.getElementById('slider-fill');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const statusEl = document.getElementById('status');
+        const dateEl = document.getElementById('current-date');
+
+        const CIRCUMFERENCE = 282.7;
+
+        function init() {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            dateEl.innerText = new Date().toLocaleDateString(undefined, options);
+
+            Papa.parse(CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    if (results.data && results.data.length > 0) {
+                        processData(results.data);
+                        statusEl.classList.add('hidden');
+                    } else {
+                        statusEl.innerText = "CSV loaded but no data found.";
+                    }
+                },
+                error: (err) => {
+                    statusEl.innerText = "Error loading CSV.";
+                }
+            });
+        }
+
+        function processData(data) {
+            items = [];
+            data.forEach((row, idx) => {
+                const qText = row.question;
+                const aText = row.answer;
+                const qImg = row.question_image;
+                const aImg = row.answer_image;
+                const qTime = parseFloat(row.question_time) || 0;
+                const aTime = parseFloat(row.answer_time) || 0;
+
+                if (qText || qImg) {
+                    items.push({
+                        type: 'question',
+                        qText: qText || '',
+                        aText: aText || '',
+                        qImg: qImg || null,
+                        aImg: aImg || null,
+                        time: qTime,
+                        originalIndex: idx + 1
+                    });
+                }
+                if (aText || aImg) {
+                    items.push({
+                        type: 'answer',
+                        qText: qText || '',
+                        aText: aText || '',
+                        qImg: qImg || null,
+                        aImg: aImg || null,
+                        time: aTime,
+                        originalIndex: idx + 1
+                    });
+                }
+            });
+
+            if (items.length > 0) {
+                seekSlider.max = items.length - 1;
+                renderState();
+            }
+        }
+
+        function renderState() {
+            const item = items[currentIndex];
+            if (!item) return;
+
+            displayQ.innerHTML = item.qText;
+            displayA.innerHTML = item.aText;
+            
+            // Handle Question Image
+            if (item.qImg) {
+                qMedia.innerHTML = `<img src="${item.qImg}" alt="Question Image">`;
+                qMedia.classList.remove('hidden');
+            } else {
+                qMedia.classList.add('hidden');
+            }
+
+            // Handle Answer Image
+            if (item.aImg && item.type === 'answer') {
+                aMedia.innerHTML = `<img src="${item.aImg}" alt="Answer Image">`;
+                aMedia.classList.remove('hidden');
+            } else {
+                aMedia.classList.add('hidden');
+            }
+
+            if (item.type === 'answer') {
+                displayA.style.visibility = 'visible';
+                displayA.style.opacity = '1';
+            } else {
+                displayA.style.visibility = 'hidden';
+                displayA.style.opacity = '0';
+                aMedia.classList.add('hidden');
+            }
+
+            renderMathInElement(document.querySelector('.content-area'), {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError: false
+            });
+
+            const totalQuestions = new Set(items.map(i => i.originalIndex)).size;
+            qNumberEl.innerText = `QUESTION ${item.originalIndex}`;
+            qTotalEl.innerText = `OF ${totalQuestions}`;
+
+            seekSlider.value = currentIndex;
+            const sliderPercent = items.length > 1 ? (currentIndex / (items.length - 1)) * 100 : 0;
+            sliderFill.style.width = sliderPercent + '%';
+
+            currentTimer = item.time;
+            
+            if (item.time > 0) {
+                countdownTimerEl.classList.remove('hidden');
+                countdownTimerEl.innerText = Math.ceil(currentTimer);
+                updateProgress(0);
+            } else {
+                countdownTimerEl.classList.add('hidden');
+                updateProgress(0);
+            }
+            
+            if (isPlaying) {
+                lastTimestamp = performance.now();
+                if (!requestId) requestId = requestAnimationFrame(tick);
+            }
+        }
+
+        function updateProgress(ratio) {
+            const offset = CIRCUMFERENCE - (ratio * CIRCUMFERENCE);
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        function tick(timestamp) {
+            if (!isPlaying) {
+                requestId = null;
+                return;
+            }
+            const delta = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            const item = items[currentIndex];
+            if (item && item.time > 0) {
+                currentTimer -= delta;
+                countdownTimerEl.innerText = Math.max(0, Math.ceil(currentTimer));
+                const elapsed = item.time - currentTimer;
+                const ratio = Math.min(1, Math.max(0, elapsed / item.time));
+                updateProgress(ratio);
+                if (currentTimer <= 0) {
+                    next();
+                    requestId = requestAnimationFrame(tick);
+                    return;
+                }
+            }
+            requestId = requestAnimationFrame(tick);
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                lastTimestamp = performance.now();
+                if (!requestId) requestId = requestAnimationFrame(tick);
+            } else {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        }
+
+        function next() {
+            if (currentIndex < items.length - 1) {
+                currentIndex++;
+                renderState();
+            } else {
+                isPlaying = false;
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                updateProgress(1);
+            }
+        }
+
+        function prev() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderState();
+            }
+        }
+
+        btnPlay.onclick = togglePlay;
+        btnNext.onclick = next;
+        btnPrev.onclick = prev;
+        seekSlider.oninput = (e) => {
+            currentIndex = parseInt(e.target.value);
+            renderState();
+        };
+
+        window.onkeydown = (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            } else if (e.code === 'ArrowRight') {
+                next();
+            } else if (e.code === 'ArrowLeft') {
+                prev();
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
