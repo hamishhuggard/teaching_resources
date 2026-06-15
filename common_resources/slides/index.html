@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Lesson Presentation Deck</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Kalam for Handwritten Style, Inter for clean UI elements -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- PapaParse for robust CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- KaTeX for beautiful math equations -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        :root {
+            --paper-line-height: 12vh; 
+        }
+        
+        body {
+            font-family: 'Kalam', cursive, sans-serif;
+            overflow: hidden;
+            background-color: #fafaf6;
+            margin: 0;
+            padding: 0;
+            color: #000000;
+        }
+
+        /* Slide Deck Snap Container */
+        .slides-container {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: 100vh;
+            scroll-behavior: smooth;
+        }
+
+        /* Slide Viewport */
+        .slide {
+            scroll-snap-align: start;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            justify-content: stretch;
+            position: relative;
+            box-sizing: border-box;
+            background-color: #fafaf6;
+        }
+
+        /* Lined Notebook Style Background */
+        .lined-paper {
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.07) 2px, transparent 2px);
+            background-size: 100% var(--paper-line-height);
+            background-position: 0 calc(var(--paper-line-height) - 2px);
+        }
+
+        /* Notebook red margin line */
+        .lined-paper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: clamp(60px, 16vw, 200px);
+            bottom: 0;
+            width: 3px;
+            background-color: rgba(239, 68, 68, 0.45);
+            z-index: 10;
+        }
+
+        /* Notebook content padding alignment */
+        .notebook-content {
+            padding-left: clamp(85px, 19vw, 240px);
+            padding-right: clamp(30px, 6vw, 120px);
+            padding-top: 8vh;
+            padding-bottom: 4vh;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        /* Single wrapping container block that handles multi-line wraps and fits the paper lines */
+        .lined-text-block {
+            display: block;
+            width: 100%;
+            font-size: clamp(1.4rem, 3.2vh, 2.8rem);
+            line-height: var(--paper-line-height);
+            color: #000000;
+            padding-top: 0.5vh;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .lined-text-block h1, .lined-text-block h2 {
+            font-family: 'Kalam', cursive, sans-serif;
+            font-weight: 700;
+            line-height: var(--paper-line-height);
+            font-size: clamp(2.2rem, 5vh, 4rem);
+            margin-bottom: 0;
+            text-decoration: underline;
+            text-underline-offset: 0.5vh;
+        }
+
+        .lined-text-block p {
+            margin-bottom: 0;
+            line-height: var(--paper-line-height);
+        }
+
+        .lined-text-block ul, .lined-text-block ol {
+            padding-left: 2rem;
+            margin-bottom: 0;
+        }
+
+        .lined-text-block li {
+            line-height: var(--paper-line-height);
+            list-style-type: square;
+        }
+
+        /* Double height for massive Title slide headers */
+        .handwritten-title {
+            font-size: clamp(2.4rem, 5.5vh, 4.8rem);
+            font-weight: 700;
+            line-height: var(--paper-line-height);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Make underlined words sit cleanly */
+        u {
+            text-decoration: underline;
+            text-underline-offset: 0.5vh;
+        }
+
+        /* Hide Scrollbar for Presentation Mode */
+        .slides-container::-webkit-scrollbar {
+            display: none;
+        }
+        .slides-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Clean Minimalist Timer in Top Left Margin */
+        .classroom-timer {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: clamp(1rem, 2.2vw, 1.6rem);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s ease;
+        }
+        .classroom-timer.timer-paused {
+            background-color: #4b5563; /* Gray background when paused */
+        }
+        .classroom-timer.timer-warning {
+            animation: pulse-red 1s infinite alternate;
+        }
+        @keyframes pulse-red {
+            from { background-color: #000000; }
+            to { background-color: #ef4444; }
+        }
+
+        /* Top Bar Status Indicator */
+        .top-meta-bar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .meta-pill {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            color: #000000;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="select-none">
+
+    <!-- Minimal Interactive Presentation Timer (Top-left margin) -->
+    <div id="countdown-timer" class="classroom-timer" title="Click to Pause/Play. Double Click to Reset.">
+        --:--
+    </div>
+
+    <!-- Top Status Bar (Date Controls Dropdown only) -->
+    <div class="top-meta-bar">
+        <!-- Date Selector Dropdown -->
+        <select id="date-override-selector" class="meta-pill bg-white cursor-pointer outline-none border border-black/15 hover:border-black/30 transition-all" title="Switch lesson schedule day">
+            <option value="">Loading lessons...</option>
+        </select>
+    </div>
+
+    <!-- Main Loading & Error Overlay -->
+    <div id="status-overlay" class="fixed inset-0 bg-white/95 z-[200] flex flex-col items-center justify-center font-sans px-6 text-center">
+        <div class="max-w-md space-y-6">
+            <h2 id="overlay-title" class="text-3xl font-black tracking-tight text-black">Loading Deck...</h2>
+            <p id="overlay-text" class="text-neutral-600 text-lg">Fetching lessons, resolving markdown, and structuring interactive timeline sheets...</p>
+            <div id="overlay-controls" class="hidden flex flex-col gap-3">
+                <button onclick="retryLoading()" class="bg-black text-white hover:bg-neutral-800 transition-all font-bold px-6 py-3 rounded-lg shadow-md">
+                    Retry Request
+                </button>
+                <button onclick="loadMockDemo()" class="text-neutral-500 hover:text-black transition-all underline text-sm">
+                    Load Built-in Demo Data instead
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Slides Container -->
+    <div id="slides-wrapper" class="slides-container">
+        <!-- Built Dynamically -->
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURABLE VARIABLES & DATA STORES
+        // ==========================================
+        
+        // PASTE YOUR CSV URL HERE
+        let CSV_URL = "https://docs.google.com/spreadsheets/d/1Sv-gh9uJbgr9rVpnpIeKkjj-rxG4aS3AOic4vG1vFRU/pub?output=csv#gid=0";
+
+        let allParsedSlides = []; // Fully formatted slides grouped by processed date
+        let slideDates = [];       // Unique list of dates encountered
+        let activeDate = "";      // Currently displayed lesson date
+        let activeSlides = [];    // Slides belonging to current active date
+        
+        let slideIndices = [];
+        let timerInterval = null;
+        let timerSecondsLeft = 0;
+        let isTimerRunning = false;
+        let lastActiveIdx = -1;
+
+        // Custom parser settings for Marked.js
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        // ==========================================
+        // CSV PARSER & DATE PROPAGATION LOGIC
+        // ==========================================
+        async function fetchAndParseCSV() {
+            updateStatus("Connecting to Classroom Sheet...", "Requesting dataset from spreadsheet pipeline...");
+            
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
+                const csvText = await response.text();
+                
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        processCSVRows(results.data);
+                    },
+                    error: function(err) {
+                        showError("Parsing Failure", "Failed to extract structure from lesson spreadsheet CSV.", true);
+                    }
+                });
+            } catch (error) {
+                console.error(error);
+                showError(
+                    "Network Connection Denied", 
+                    "Could not retrieve presentation assets from the specified URL. Check CORS rules or spreadsheet publish status.", 
+                    true
+                );
+            }
+        }
+
+        function processCSVRows(rows) {
+            allParsedSlides = [];
+            let lastSeenDate = "";
+
+            rows.forEach((row, idx) => {
+                // Normalize column header keys (lowercased & whitespace trimmed)
+                const cleanRow = {};
+                Object.keys(row).forEach(key => {
+                    cleanRow[key.toLowerCase().trim()] = row[key];
+                });
+
+                // Read Date and perform date forwarding propagation
+                let dateVal = cleanRow['date'] ? cleanRow['date'].trim() : "";
+                if (dateVal !== "") {
+                    lastSeenDate = dateVal;
+                }
+
+                // If no date was ever seen, skip row
+                if (!lastSeenDate) return;
+
+                // Push parsed record
+                allParsedSlides.push({
+                    id: idx + 1,
+                    date: lastSeenDate,
+                    title: cleanRow['title'] || "",
+                    text: cleanRow['text'] || "",
+                    imageUrl: cleanRow['image url'] || cleanRow['image_url'] || cleanRow['image'] || "",
+                    videoUrl: cleanRow['video url'] || cleanRow['video_url'] || cleanRow['video'] || "",
+                    timer: cleanRow['timer'] ? parseTimerValue(cleanRow['timer']) : 0
+                });
+            });
+
+            if (allParsedSlides.length === 0) {
+                showError("Empty Presentation Deck", "No formatted slide schedules found inside the processed sheet rows.", true);
+                return;
+            }
+
+            // Extract unique sequence of dates
+            slideDates = [...new Set(allParsedSlides.map(s => s.date))];
+            
+            // Populate Dropdown override
+            populateDateSelector();
+
+            // Auto-detect Today's Date
+            detectAndLoadTargetDate();
+        }
+
+        // Parse timer string e.g. "5:00" or raw number of seconds
+        function parseTimerValue(val) {
+            if (!val) return 0;
+            const strVal = String(val).trim();
+            if (strVal.includes(':')) {
+                const parts = strVal.split(':');
+                const mins = parseInt(parts[0]) || 0;
+                const secs = parseInt(parts[1]) || 0;
+                return (mins * 60) + secs;
+            }
+            return parseInt(strVal) || 0;
+        }
+
+        function detectAndLoadTargetDate() {
+            const today = new Date();
+            
+            // Generate standard candidate date formats to match CSV input
+            const formatOptions = [
+                today.toISOString().split('T')[0], // YYYY-MM-DD
+                today.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), // e.g. Tuesday, June 16, 2026
+                today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), // e.g. Tuesday, 16 June 2026
+                today.toLocaleDateString('en-GB'), // D/M/YYYY
+                today.toLocaleDateString('en-US')  // M/D/YYYY
+            ];
+
+            // Normalize helper for clean match comparisons
+            const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            let matchedDate = "";
+            for (let candidate of formatOptions) {
+                const normalizedCandidate = normalize(candidate);
+                const found = slideDates.find(d => normalize(d) === normalizedCandidate);
+                if (found) {
+                    matchedDate = found;
+                    break;
+                }
+            }
+
+            // Fallback to the first available date in dataset if today has no slides scheduled
+            if (!matchedDate && slideDates.length > 0) {
+                matchedDate = slideDates[0];
+            }
+
+            setTargetDate(matchedDate);
+        }
+
+        function setTargetDate(dateStr) {
+            activeDate = dateStr;
+            activeSlides = allParsedSlides.filter(s => s.date === dateStr);
+            
+            // Sync selector UI
+            const selectEl = document.getElementById('date-override-selector');
+            selectEl.value = dateStr;
+
+            buildSlidesDeck();
+            
+            // Hide loading overlays
+            document.getElementById('status-overlay').classList.add('hidden');
+        }
+
+        // ==========================================
+        // COMPONENT BUILDING & LAYOUT GENERATION
+        // ==========================================
+        function buildSlidesDeck() {
+            const container = document.getElementById('slides-wrapper');
+            container.innerHTML = ''; // Clear past content
+
+            if (activeSlides.length === 0) {
+                container.innerHTML = `
+                    <div class="slide lined-paper">
+                        <div class="notebook-content flex items-center justify-center">
+                            <div class="text-center space-y-4">
+                                <h2 class="text-4xl font-bold">No Scheduled Lessons</h2>
+                                <p class="text-xl">Pick another timeline block from the status dropdown menu at the top-right.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            activeSlides.forEach((slideData, idx) => {
+                const slideEl = document.createElement('div');
+                slideEl.className = 'slide lined-paper';
+                
+                // Keep references to calculate timers correctly
+                slideEl.dataset.timer = slideData.timer;
+
+                // Built Layout Structure
+                let contentHTML = `
+                    <div class="notebook-content">
+                        <!-- Top Index Margin Space -->
+                        <div class="flex justify-between items-center text-zinc-500 font-sans text-xs uppercase tracking-widest border-b border-black/5 pb-2 mb-4">
+                            <span>Index: Slide ${idx + 1} of ${activeSlides.length}</span>
+                            <span>${slideData.date}</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 ${ (slideData.imageUrl || slideData.videoUrl) ? 'lg:grid-cols-2' : '' } gap-8 items-center h-full">
+                            
+                            <!-- Left: Markdown Content Block -->
+                            <div class="lined-text-block">
+                                ${ slideData.title ? `<h1 class="handwritten-title mb-4">${slideData.title}</h1>` : '' }
+                                <div class="markdown-body">
+                                    ${ parseMarkdownAndLatex(slideData.text) }
+                                </div>
+                            </div>
+
+                            <!-- Right Media Display Block (Conditional) -->
+                            ${ (slideData.imageUrl || slideData.videoUrl) ? `
+                                <div class="flex flex-col items-center justify-center p-4 bg-white/50 border border-black/10 rounded-2xl shadow-sm max-h-[70vh] overflow-hidden">
+                                    ${ slideData.videoUrl ? renderVideoPlayer(slideData.videoUrl) : '' }
+                                    ${ (slideData.imageUrl && !slideData.videoUrl) ? renderImageViewer(slideData.imageUrl) : '' }
+                                </div>
+                            ` : '' }
+
+                        </div>
+                    </div>
+                `;
+
+                slideEl.innerHTML = contentHTML;
+                container.appendChild(slideEl);
+            });
+
+            slideIndices = Array.from(container.children);
+            
+            // Compile KaTeX equations
+            renderMathInElement(container, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError: false
+            });
+
+            // Start layout tracking
+            setTimeout(() => {
+                handleSlideChange();
+            }, 100);
+        }
+
+        // Render Markdown securely and convert Custom Blank Underlines correctly
+        function parseMarkdownAndLatex(text) {
+            if (!text) return "";
+            // Replace [write answer here] or empty square brackets with handwritten styled gray placeholders
+            let processed = text.replace(/\[write\s+answer\s+here\]/gi, '<span class="answer-placeholder">[Write response here]</span>');
+            processed = processed.replace(/\[\s*\]/g, '<span class="answer-placeholder">[______]</span>');
+            return marked.parse(processed);
+        }
+
+        function renderImageViewer(url) {
+            return `
+                <img src="${url.trim()}" 
+                     alt="Lesson Visual Reference Element" 
+                     class="max-w-full max-h-[60vh] object-contain rounded-lg border border-black/5" 
+                     onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800'; this.alt='Placeholder Image Loaded';">
+            `;
+        }
+
+        function renderVideoPlayer(url) {
+            const cleanUrl = url.trim();
+            // Check for YouTube Embed formats
+            if (cleanUrl.includes('youtube.com/watch') || cleanUrl.includes('youtu.be/')) {
+                let videoId = "";
+                if (cleanUrl.includes('watch?v=')) {
+                    videoId = cleanUrl.split('v=')[1].split('&')[0];
+                } else if (cleanUrl.includes('youtu.be/')) {
+                    videoId = cleanUrl.split('/').pop().split('?')[0];
+                }
+                return `
+                    <iframe class="w-full aspect-video rounded-lg border border-black/5" 
+                            src="https://www.youtube.com/embed/${videoId}" 
+                            title="Classroom Video Player" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                    </iframe>
+                `;
+            }
+            // Standard HTML5 player for absolute mp4 file configurations
+            return `
+                <video class="w-full max-h-[60vh] rounded-lg border border-black/5" controls>
+                    <source src="${cleanUrl}" type="video/mp4">
+                    Your current web browser configuration does not support embed video tags.
+                </video>
+            `;
+        }
+
+        // ==========================================
+        // TIMER MECHANICS & CONTROLLER
+        // ==========================================
+        function startTimer(durationInSeconds) {
+            clearInterval(timerInterval);
+            const timerDiv = document.getElementById('countdown-timer');
+            
+            if (durationInSeconds <= 0) {
+                timerDiv.style.display = 'none';
+                return;
+            }
+            
+            timerDiv.style.display = 'block';
+            timerSecondsLeft = durationInSeconds;
+            isTimerRunning = true;
+            timerDiv.classList.remove('timer-paused', 'timer-warning');
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                if (isTimerRunning) {
+                    timerSecondsLeft--;
+                    if (timerSecondsLeft <= 0) {
+                        timerSecondsLeft = 0;
+                        clearInterval(timerInterval);
+                        timerDiv.classList.add('timer-warning');
+                    }
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const timerDiv = document.getElementById('countdown-timer');
+            const mins = Math.floor(timerSecondsLeft / 60).toString().padStart(2, '0');
+            const secs = (timerSecondsLeft % 60).toString().padStart(2, '0');
+            timerDiv.textContent = `${mins}:${secs}`;
+        }
+
+        // Timer Interaction Listeners (Click: Pause/Play, DblClick: Reset Current slide timer)
+        const timerElement = document.getElementById('countdown-timer');
+        timerElement.addEventListener('click', () => {
+            isTimerRunning = !isTimerRunning;
+            if (isTimerRunning) {
+                timerElement.classList.remove('timer-paused');
+            } else {
+                timerElement.classList.add('timer-paused');
+            }
+        });
+
+        timerElement.addEventListener('dblclick', () => {
+            const activeIndex = getActiveSlideIndex();
+            const rawTimerVal = slideIndices[activeIndex]?.dataset.timer;
+            startTimer(parseInt(rawTimerVal) || 0);
+        });
+
+        // ==========================================
+        // NAVIGATION, EVENTS & INTERFACES
+        // ==========================================
+        function getActiveSlideIndex() {
+            const container = document.getElementById('slides-wrapper');
+            const currentScroll = container.scrollTop;
+            const threshold = window.innerHeight / 2;
+            let activeIdx = 0;
+            
+            for (let i = 0; i < slideIndices.length; i++) {
+                const itemTop = slideIndices[i].offsetTop;
+                if (Math.abs(currentScroll - itemTop) < threshold) {
+                    activeIdx = i;
+                    break;
+                }
+            }
+            return activeIdx;
+        }
+
+        function handleSlideChange() {
+            const activeIndex = getActiveSlideIndex();
+            if (activeIndex !== lastActiveIdx) {
+                lastActiveIdx = activeIndex;
+                
+                const activeSlide = slideIndices[activeIndex];
+                if (activeSlide) {
+                    const duration = parseInt(activeSlide.dataset.timer) || 0;
+                    startTimer(duration);
+                }
+            }
+        }
+
+        function navigateToSlide(index) {
+            if (index < 0 || index >= slideIndices.length) return;
+            const targetElement = slideIndices[index];
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Sync and setup the Select dropdown element
+        function populateDateSelector() {
+            const selectEl = document.getElementById('date-override-selector');
+            selectEl.innerHTML = '';
+            
+            slideDates.forEach(date => {
+                const opt = document.createElement('option');
+                opt.value = date;
+                opt.textContent = date;
+                selectEl.appendChild(opt);
+            });
+
+            selectEl.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    setTargetDate(e.target.value);
+                }
+            });
+        }
+
+        // Captured Scroll Actions
+        document.getElementById('slides-wrapper').addEventListener('scroll', () => {
+            handleSlideChange();
+        });
+
+        // Capture Arrow / Space Bar Interactions
+        document.addEventListener('keydown', (e) => {
+            const activeIndex = getActiveSlideIndex();
+
+            if (e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateToSlide(activeIndex + 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateToSlide(activeIndex - 1);
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullScreenMode();
+            }
+        });
+
+        function toggleFullScreenMode() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch((err) => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // ==========================================
+        // RETRY CONTROLS & DEMO RECOVERIES
+        // ==========================================
+        function updateStatus(title, text) {
+            document.getElementById('overlay-title').textContent = title;
+            document.getElementById('overlay-text').textContent = text;
+            document.getElementById('overlay-controls').classList.add('hidden');
+        }
+
+        function showError(title, text, showRetry = true) {
+            document.getElementById('overlay-title').textContent = title;
+            document.getElementById('overlay-text').textContent = text;
+            if (showRetry) {
+                document.getElementById('overlay-controls').classList.remove('hidden');
+            }
+        }
+
+        function retryLoading() {
+            updateStatus("Retrying Connection...", "Connecting back to active lesson spreadsheets...");
+            fetchAndParseCSV();
+        }
+
+        // Mock Sandbox Data in case CSV URL is broken or offline
+        function loadMockDemo() {
+            const mockData = [
+                { date: "Monday, June 15, 2026", title: "Intro to Electrostatics", text: "Today we will analyze Coulomb's Law:\n\n$$F = k_e \\frac{q_1 q_2}{r^2}$$\n\nWhere:\n* $F$ is electrical force\n* $q_1, q_2$ are charges [write answer here]\n* $r$ is displacement distance between charges.", timer: "120" },
+                { date: "", title: "The Concept of Electric Field", text: "An **Electric Field** ($E$) is defined mathematically as the force per unit positive charge:\n\n$$E = \\frac{F}{q}$$\n\n[ ] Draw the corresponding field map inside your laboratory booklets.", timer: "300" },
+                { date: "Tuesday, June 16, 2026", title: "Conventional Current Review", text: "Remember the following distinction:\n\n* **Conventional Current** flow positive to negative.\n* **Electron Drift** moves negative to positive.\n\n$$\\Delta Q = I \\cdot \\Delta t$$", timer: "60" }
+            ];
+            processCSVRows(mockData);
+        }
+
+        // Run Onload
+        window.onload = () => {
+            fetchAndParseCSV();
+        };
+    </script>
+</body>
+</html>
