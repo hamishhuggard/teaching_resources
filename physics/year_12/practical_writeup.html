@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level 2 Physics Practical Write-Up</title>
+   
+    <!-- MathJax for rendering LaTeX -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        /* Modern CSS resets and custom variables */
+        :root {
+            --bg-color: #f3f4f6;
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+            --card-bg: #ffffff;
+            --border-color: #e5e7eb;
+            --primary-blue: #3b82f6;
+            --primary-red: #ef4444;
+            --primary-green: #10b981;
+            --font-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+           
+            /* Badge Colors */
+            --achieved-bg: #e0f2fe;
+            --achieved-text: #0369a1;
+            --merit-bg: #fef3c7;
+            --merit-text: #b45309;
+            --excellence-bg: #f3e8ff;
+            --excellence-text: #6b21a8;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            margin: 0;
+            padding: 2rem 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 48rem; /* equivalent to max-w-3xl */
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: #111827;
+            margin: 0 0 0.5rem 0;
+            letter-spacing: -0.025em;
+        }
+
+        header p {
+            font-size: 1.125rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        section {
+            margin-bottom: 2.5rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 2px solid;
+        }
+
+        /* Semantic colors for sections */
+        .title-variables {
+            border-color: var(--primary-blue);
+            color: #111827;
+        }
+
+        .title-errors {
+            border-color: var(--primary-red);
+            color: #111827;
+        }
+
+        .title-results {
+            border-color: var(--primary-green);
+            color: #111827;
+        }
+
+        /* Collapsible details and summary styling */
+        details {
+            background: var(--card-bg);
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        details:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+            border-color: #d1d5db;
+        }
+
+        summary {
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            background-color: #f9fafb;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            list-style: none; /* Hides standard HTML triangle */
+        }
+
+        summary::-webkit-details-marker {
+            display: none; /* Hides standard HTML triangle in Safari */
+        }
+
+        /* Sleek custom chevron indicator using pure CSS */
+        summary::after {
+            content: '';
+            display: inline-block;
+            width: 0.5rem;
+            height: 0.5rem;
+            border-right: 2px solid #9ca3af;
+            border-bottom: 2px solid #9ca3af;
+            transform: rotate(45deg);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            margin-right: 0.25rem;
+        }
+
+        details:hover summary::after {
+            border-color: var(--text-main);
+        }
+
+        details[open] summary::after {
+            transform: rotate(-135deg);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid var(--border-color);
+            background-color: #f3f4f6;
+        }
+
+        .details-content {
+            padding: 1.25rem 1.5rem;
+            background-color: var(--card-bg);
+        }
+
+        /* Excellence formatting for the one-sentence-per-line structure */
+        .content-line {
+            display: flex;
+            align-items: flex-start;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #f3f4f6;
+            margin-bottom: 0.75rem;
+            margin-top: 0;
+        }
+
+        .content-line:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        /* Badge Styling */
+        .badge {
+            display: inline-block;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            margin-right: 0.75rem;
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-a {
+            background-color: var(--achieved-bg);
+            color: var(--achieved-text);
+        }
+
+        .badge-m {
+            background-color: var(--merit-bg);
+            color: var(--merit-text);
+        }
+
+        .badge-e {
+            background-color: var(--excellence-bg);
+            color: var(--excellence-text);
+        }
+
+        /* Sentence content span */
+        .text-content {
+            flex-grow: 1;
+        }
+
+        /* Highlighting keywords style */
+        strong {
+            color: #111827;
+            font-weight: 700;
+            background-color: #eff6ff;
+            padding: 0 0.15rem;
+            border-radius: 0.125rem;
+        }
+
+        .title-errors ~ details strong {
+            background-color: #fef2f2;
+        }
+
+        .title-results ~ details strong {
+            background-color: #ecfdf5;
+        }
+
+        footer {
+            margin-top: 4rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: #9ca3af;
+            padding-bottom: 2rem;
+        }
+
+        /* Legend Panel */
+        .legend-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .legend-card h3 {
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .legend-items {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item .badge {
+            margin-top: 0;
+        }
+
+        /* Responsive scaling */
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            header h1 {
+                font-size: 1.75rem;
+            }
+            .section-title {
+                font-size: 1.25rem;
+            }
+            summary {
+                font-size: 1rem;
+                padding: 0.875rem 1rem;
+            }
+            .legend-items {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+       
+        <header>
+            <h1>Circular Motion Practical Investigation</h1>
+            <p>NCEA Level 2 Physics – Excellence Write-Up with Grading Guide</p>
+        </header>
+
+        <!-- Grading Guide Legend -->
+        <div class="legend-card">
+            <h3>NCEA Level 2 Assessment Criteria Legend:</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="badge badge-a">Achieved</span>
+                    <span>Basic requirements, variables, data, & basic relationship</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-m">Merit</span>
+                    <span>Range, control methods, and standard error mitigation</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-e">Excellence</span>
+                    <span>Justification of limits, physics theory links, and evaluation</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Variables -->
+        <section>
+            <h2 class="section-title title-variables">1. Variables & Parameters</h2>
+
+            <details>
+                <summary>Independent Variable</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">The <strong>independent variable</strong> is the <strong>weight force ($F_g$)</strong> that provides <strong>tension on the string</strong> ($F_T$).</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This force was <strong>systematically varied</strong> from $1.5\text{ N}$ to $3.9\text{ N}$.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">The standard unit of measurement is <strong>Newtons ($\text{N}$)</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This was achieved by adding $50\text{ g}$ slotted masses to a $50\text{ g}$ mass hanger.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The total mass was converted to weight force using <strong>$F_g = mg$</strong>, where <strong>$g = 9.8\text{ N kg}^{-1}$</strong>.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Dependent Variable</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">The <strong>dependent variable</strong> is the <strong>time period ($T$)</strong> for <strong>one complete rotation</strong> of the rubber bung.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This duration was accurately measured using a digital stopwatch, recording the total time for <strong>10 full oscillations</strong>.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Minimum Value of Independent Variable</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The smallest weight force used was $1.5\text{ N}$, yielding a period of $6.6\text{ s}$ for 10 rotations.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">At this lower limit, the bung began to <strong>sag significantly below the horizontal plane</strong> (at an angle of roughly $10^\circ$).</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This vertical displacement <strong>compromised the accuracy of the horizontal radius ($r$)</strong> of rotation.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">Reducing the weight any further would have introduced a <strong>systematic geometric error</strong> as the motion ceased to be horizontal.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">Consequently, $1.5\text{ N}$ was chosen as the <strong>justifiable lower limit</strong> to maintain circular motion in a horizontal plane.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Maximum Value of Independent Variable</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The maximum weight force used was $3.9\text{ N}$, corresponding to a time period of $3.9\text{ s}$ for 10 rotations.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The <strong>absolute uncertainty</strong> for this measurement is calculated from <strong>half the range of the raw data</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">The calculated uncertainty is $\text{absolute uncertainty} = \frac{\text{Max} - \text{Min}}{2} = \frac{4.2 - 3.9}{2} = 0.15\text{ s}$.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This value is bounded by typical <strong>human reaction time limits</strong> of approximately $0.1\text{ s}$ to $0.2\text{ s}$.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">The <strong>percentage uncertainty</strong> for this shortest period is $\frac{0.15}{3.9} \times 100\% \approx 3.8\%$.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">Any higher weight forces would make the period too fast to count accurately, setting a <strong>clear practical upper limit</strong>.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Controlled Variables</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">We successfully controlled the <strong>radius of rotation ($r$)</strong> by attaching a <strong>fixed reference marker (alligator clip/blue tape)</strong> to the string.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The speed of rotation was carefully modulated so this marker remained <strong>stationary just below the bottom of the glass tube</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">According to the theoretical relationship <strong>$W = m_{\text{bung}} 4 \pi^2 r^2 T^{-2}$</strong>, $T$ is highly sensitive to variations in $r$.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">If the radius slipped and increased by just $6\text{ cm}$, it would cause a $\frac{6}{55} = 10.9\%$ change in the radius measurement.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This slip would cause a mathematically significant <strong>$5.3\%$ increase in the calculated period</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">We also strictly controlled the <strong>mass of the rubber bung ($m_{\text{bung}}$)</strong> by using the <strong>exact same physical bung</strong> across all trials.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">If the mass of the bung fluctuated, the centripetal force required would change, violating the <strong>one-to-one dependency between $W$ and $T$</strong>.</span>
+                    </p>
+                </div>
+            </details>
+        </section>
+
+        <!-- Section: Errors -->
+        <section>
+            <h2 class="section-title title-errors">2. Sources of Error</h2>
+
+            <details>
+                <summary>Parallax Error</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">To eliminate <strong>parallax error</strong>, I aligned the reference marker directly at <strong>eye level</strong> during rotation.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This ensured that looking up or down at the marker did not cause a <strong>perceived shift in its position</strong> relative to the tube.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">By eliminating this alignment shift, we kept the <strong>radius constant</strong> and avoided a <strong>systematic measurement error</strong>.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Reaction Time Error</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">Human reaction time when starting and stopping a stopwatch introduces a <strong>random error of about $0.1\text{ s}$ to $0.2\text{ s}$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">If we only timed <strong>one single rotation</strong> at high speed ($T \approx 0.40\text{ s}$), a $0.1\text{ s}$ delay creates an unacceptable <strong>$25\%$ percentage error</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">To successfully mitigate this, we <strong>timed 10 consecutive rotations</strong> as a single continuous block.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">We then <strong>divided the total time by 10</strong> to calculate the average time period for a single rotation.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This spread the reaction time error over 10 periods, <strong>reducing the percentage error to a negligible $\approx 2.5\%$</strong>.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>Multiple Trials</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">To minimize the impact of random human error, we <strong>repeated each mass setting for 3 independent runs</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">This gave us a highly robust set of <strong>multiple trials</strong> from which to spot outliers.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The <strong>absolute uncertainty</strong> in our timing was calculated using the formula <strong>$\frac{\text{range}}{2}$</strong> for each mass setting.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This calculated uncertainty closely matched the limits predicted by our manual reaction time.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">We calculated and used the <strong>mean (average) value</strong> of these trials as our final data points to <strong>increase overall reliability</strong>.</span>
+                    </p>
+                </div>
+            </details>
+        </section>
+
+        <!-- Section: Results -->
+        <section>
+            <h2 class="section-title title-results">3. The Results</h2>
+
+            <details>
+                <summary>The Power Relationship</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">The theoretical equation governing this circular motion system is <strong>$W = m_{\text{bung}} 4 \pi^2 r^2 T^{-2}$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">From our non-linear curve fit of Weight vs. Period, we found the experimental power relationship <strong>$W = 0.653 T^{-1.95}$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The power value of $-1.95$ is extremely close to the <strong>theoretical integer power of $-2$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This result confirms that $W$ is <strong>inversely proportional to the square of the period ($W \propto T^{-2}$)</strong>, validating our physical model.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>The Gradient Comparison</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">We linearized our data by plotting $W$ on the y-axis against $T^{-2}$ on the x-axis, yielding <strong>$W = 0.611 T^{-2} + 0.0839$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">The <strong>experimental gradient ($m_{\text{exp}}$)</strong> from this linear regression equation is <strong>$0.611\text{ N s}^2$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">The theoretical gradient is defined as the constant coefficient of $T^{-2}$, which is <strong>$\text{gradient} = m_{\text{bung}} 4 \pi^2 r^2$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-m">Merit</span>
+                        <span class="text-content">Substituting our values ($m_{\text{bung}} = 0.052\text{ kg}$, $r = 0.55\text{ m}$) yields a <strong>theoretical gradient of $0.621\text{ N s}^2$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">We compared these by calculating the accuracy ratio: <strong>$\frac{\text{experimental}}{\text{theoretical}} \times 100\% = \frac{0.611}{0.621} \times 100\% = 98.4\%$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This means our experimental gradient is <strong>only $1.6\%$ off from the predicted theoretical value</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This exceptionally high level of accuracy indicates that our experimental model and control of variables were highly successful.</span>
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary>The y-intercept</summary>
+                <div class="details-content">
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">According to theoretical physics, if there is no period ($T \to \infty$), there is no circular motion, so the <strong>y-intercept should be exactly $0\text{ N}$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-a">Achieved</span>
+                        <span class="text-content">Our experimental equation yielded a very small, non-zero <strong>y-intercept of $c = 0.0839\text{ N}$</strong>.</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">This intercept represents only <strong>$5.6\%$ of our smallest independent variable value</strong> ($1.5\text{ N}$).</span>
+                    </p>
+                    <p class="content-line">
+                        <span class="badge badge-e">Excellence</span>
+                        <span class="text-content">Because this value is so tiny, we can confidently <strong>attribute this non-zero intercept to minor random variations</strong> rather than an uncontrolled systematic error.</span>
+                    </p>
+                </div>
+            </details>
+        </section>
+       
+        <footer>
+            <p>Generated for NCEA Level 2 Physics Practical Excellence.</p>
+        </footer>
+
+    </div>
+
+</body>
+</html>
