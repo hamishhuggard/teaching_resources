@@ -25,7 +25,7 @@
 
     <style>
         :root {
-            --paper-line-height: 12vh; 
+            --paper-line-height: 10vh; /* Set tight grid for perfect line resting */
         }
         
         body {
@@ -61,9 +61,9 @@
         /* Lined Notebook Style Background */
         .lined-paper {
             background-image: 
-                linear-gradient(rgba(0, 0, 0, 0.07) 2px, transparent 2px);
+                linear-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 1px);
             background-size: 100% var(--paper-line-height);
-            background-position: 0 calc(var(--paper-line-height) - 2px);
+            background-position: 0 0;
         }
 
         /* Notebook red margin line */
@@ -82,7 +82,7 @@
         .notebook-content {
             padding-left: clamp(85px, 19vw, 240px);
             padding-right: clamp(30px, 6vw, 120px);
-            padding-top: 8vh;
+            padding-top: var(--paper-line-height); /* Align first content line precisely */
             padding-bottom: 4vh;
             height: 100%;
             display: flex;
@@ -91,47 +91,51 @@
             overflow-y: auto;
         }
 
-        /* Single wrapping container block that handles multi-line wraps and fits the paper lines */
+        /* Strict grid system aligning every child element to background lines */
         .lined-text-block {
             display: block;
             width: 100%;
-            font-size: clamp(1.4rem, 3.2vh, 2.8rem);
-            line-height: var(--paper-line-height);
+            font-size: clamp(1.2rem, 2.5vh, 2.2rem);
             color: #000000;
-            padding-top: 0.5vh;
-            white-space: normal;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+            padding-top: 0.6vh; /* Shifts text slightly down to kiss the lines */
         }
 
-        .lined-text-block h1, .lined-text-block h2 {
-            font-family: 'Kalam', cursive, sans-serif;
+        /* Force children to line up precisely with the 10vh paper lines */
+        .lined-text-block h1, 
+        .lined-text-block h2, 
+        .lined-text-block p, 
+        .lined-text-block ul, 
+        .lined-text-block ol, 
+        .lined-text-block li,
+        .lined-text-block blockquote {
+            line-height: var(--paper-line-height) !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        .lined-text-block h1 {
+            font-size: clamp(1.8rem, 4vh, 3.2rem);
             font-weight: 700;
-            line-height: var(--paper-line-height);
-            font-size: clamp(2.2rem, 5vh, 4rem);
-            margin-bottom: 0;
             text-decoration: underline;
             text-underline-offset: 0.5vh;
         }
 
-        .lined-text-block p {
-            margin-bottom: 0;
-            line-height: var(--paper-line-height);
+        .lined-text-block h2 {
+            font-size: clamp(1.5rem, 3.2vh, 2.6rem);
+            font-weight: 700;
         }
 
         .lined-text-block ul, .lined-text-block ol {
             padding-left: 2rem;
-            margin-bottom: 0;
         }
 
         .lined-text-block li {
-            line-height: var(--paper-line-height);
             list-style-type: square;
         }
 
         /* Double height for massive Title slide headers */
         .handwritten-title {
-            font-size: clamp(2.4rem, 5.5vh, 4.8rem);
+            font-size: clamp(2rem, 4.5vh, 3.8rem);
             font-weight: 700;
             line-height: var(--paper-line-height);
             margin: 0;
@@ -182,27 +186,9 @@
             to { background-color: #ef4444; }
         }
 
-        /* Top Bar Status Indicator */
-        .top-meta-bar {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .meta-pill {
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            color: #000000;
-            padding: 6px 14px;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        /* Gray text specifically for user input indicator hints */
+        .answer-placeholder {
+            color: #71717a !important; /* Tailwind Zinc-500 */
         }
     </style>
 </head>
@@ -213,12 +199,20 @@
         --:--
     </div>
 
-    <!-- Top Status Bar (Date Controls Dropdown only) -->
-    <div class="top-meta-bar">
-        <!-- Date Selector Dropdown -->
-        <select id="date-override-selector" class="meta-pill bg-white cursor-pointer outline-none border border-black/15 hover:border-black/30 transition-all" title="Switch lesson schedule day">
-            <option value="">Loading lessons...</option>
-        </select>
+    <!-- Agenda View / Table of Contents Overlay -->
+    <div id="agenda-view" class="fixed inset-0 bg-[#fafaf6] z-[150] hidden flex-col justify-start overflow-y-auto px-8 md:px-24 py-16 lined-paper">
+        <!-- Close Button -->
+        <button onclick="toggleAgenda(false)" class="absolute top-6 right-6 font-sans text-xs uppercase tracking-wider font-extrabold px-4 py-2 border border-black/10 rounded-full hover:bg-black/5 transition-all">
+            ✕ Close Agenda
+        </button>
+
+        <div class="max-w-4xl mx-auto w-full space-y-8 relative z-20">
+            <h1 class="text-4xl md:text-5xl font-black border-b-2 border-black/10 pb-4 mb-8">Lesson Agenda Index</h1>
+            
+            <div id="agenda-list" class="space-y-4">
+                <!-- Built Dynamically -->
+            </div>
+        </div>
     </div>
 
     <!-- Main Loading & Error Overlay -->
@@ -247,12 +241,11 @@
         // CONFIGURABLE VARIABLES & DATA STORES
         // ==========================================
         
-        // PASTE YOUR CSV URL HERE
         let CSV_URL = "https://docs.google.com/spreadsheets/d/1Sv-gh9uJbgr9rVpnpIeKkjj-rxG4aS3AOic4vG1vFRU/export?format=csv&gid=0&single=true";
-
 
         let allParsedSlides = []; // Fully formatted slides grouped by processed date
         let slideDates = [];       // Unique list of dates encountered
+        let agendaMap = {};        // Map linking dates to their respective propagated topic
         let activeDate = "";      // Currently displayed lesson date
         let activeSlides = [];    // Slides belonging to current active date
         
@@ -269,7 +262,7 @@
         });
 
         // ==========================================
-        // CSV PARSER & DATE PROPAGATION LOGIC
+        // CSV PARSER & DATE/TOPIC PROPAGATION LOGIC
         // ==========================================
         async function fetchAndParseCSV() {
             updateStatus("Connecting to Classroom Sheet...", "Requesting dataset from spreadsheet pipeline...");
@@ -302,6 +295,7 @@
         function processCSVRows(rows) {
             allParsedSlides = [];
             let lastSeenDate = "";
+            let lastSeenTopic = "";
 
             rows.forEach((row, idx) => {
                 // Normalize column header keys (lowercased & whitespace trimmed)
@@ -316,6 +310,12 @@
                     lastSeenDate = dateVal;
                 }
 
+                // Read Topic and perform topic forwarding propagation
+                let topicVal = cleanRow['topic'] ? cleanRow['topic'].trim() : "";
+                if (topicVal !== "") {
+                    lastSeenTopic = topicVal;
+                }
+
                 // If no date was ever seen, skip row
                 if (!lastSeenDate) return;
 
@@ -323,6 +323,7 @@
                 allParsedSlides.push({
                     id: idx + 1,
                     date: lastSeenDate,
+                    topic: lastSeenTopic || "General Topic",
                     title: cleanRow['title'] || "",
                     text: cleanRow['text'] || "",
                     imageUrl: cleanRow['image url'] || cleanRow['image_url'] || cleanRow['image'] || "",
@@ -336,11 +337,18 @@
                 return;
             }
 
-            // Extract unique sequence of dates
+            // Extract unique dates
             slideDates = [...new Set(allParsedSlides.map(s => s.date))];
             
-            // Populate Dropdown override
-            populateDateSelector();
+            // Build agenda mapping
+            agendaMap = {};
+            slideDates.forEach(date => {
+                const representativeSlide = allParsedSlides.find(s => s.date === date);
+                agendaMap[date] = representativeSlide ? representativeSlide.topic : "Lesson Details";
+            });
+
+            // Populate Agenda View UI
+            buildAgendaView();
 
             // Auto-detect Today's Date
             detectAndLoadTargetDate();
@@ -396,14 +404,11 @@
             activeDate = dateStr;
             activeSlides = allParsedSlides.filter(s => s.date === dateStr);
             
-            // Sync selector UI
-            const selectEl = document.getElementById('date-override-selector');
-            selectEl.value = dateStr;
-
             buildSlidesDeck();
             
-            // Hide loading overlays
+            // Hide loading overlays & agenda
             document.getElementById('status-overlay').classList.add('hidden');
+            toggleAgenda(false);
         }
 
         // ==========================================
@@ -419,7 +424,7 @@
                         <div class="notebook-content flex items-center justify-center">
                             <div class="text-center space-y-4">
                                 <h2 class="text-4xl font-bold">No Scheduled Lessons</h2>
-                                <p class="text-xl">Pick another timeline block from the status dropdown menu at the top-right.</p>
+                                <p class="text-xl">Pick another timeline block from the Agenda view.</p>
                             </div>
                         </div>
                     </div>
@@ -434,20 +439,23 @@
                 // Keep references to calculate timers correctly
                 slideEl.dataset.timer = slideData.timer;
 
-                // Built Layout Structure
+                // Built Layout Structure with Middle Topic Heading and Interactive Date Trigger
                 let contentHTML = `
                     <div class="notebook-content">
-                        <!-- Top Index Margin Space -->
-                        <div class="flex justify-between items-center text-zinc-500 font-sans text-xs uppercase tracking-widest border-b border-black/5 pb-2 mb-4">
-                            <span>Index: Slide ${idx + 1} of ${activeSlides.length}</span>
-                            <span>${slideData.date}</span>
+                        <!-- Top Index Margin Space (All content aligned horizontally) -->
+                        <div class="flex justify-between items-center text-zinc-500 font-sans text-xs uppercase tracking-widest border-b border-black/10 pb-1 mb-4 h-[var(--paper-line-height)]">
+                            <span class="font-semibold text-neutral-500">Slide ${idx + 1} of ${activeSlides.length}</span>
+                            <span class="font-extrabold text-black text-center truncate px-4 max-w-[40%]" title="Topic">${slideData.topic}</span>
+                            <span class="cursor-pointer font-semibold text-neutral-800 hover:text-black border-b border-dashed border-black/30 hover:border-black pb-0.5 transition-all flex items-center gap-1" onclick="toggleAgenda(true)" title="Click to view full schedule agenda">
+                                ${slideData.date} 📅
+                            </span>
                         </div>
                         
-                        <div class="grid grid-cols-1 ${ (slideData.imageUrl || slideData.videoUrl) ? 'lg:grid-cols-2' : '' } gap-8 items-center h-full">
+                        <div class="grid grid-cols-1 ${ (slideData.imageUrl || slideData.videoUrl) ? 'lg:grid-cols-2' : '' } gap-8 items-start h-full">
                             
                             <!-- Left: Markdown Content Block -->
                             <div class="lined-text-block">
-                                ${ slideData.title ? `<h1 class="handwritten-title mb-4">${slideData.title}</h1>` : '' }
+                                ${ slideData.title ? `<h1 class="handwritten-title">${slideData.title}</h1>` : '' }
                                 <div class="markdown-body">
                                     ${ parseMarkdownAndLatex(slideData.text) }
                                 </div>
@@ -455,7 +463,7 @@
 
                             <!-- Right Media Display Block (Conditional) -->
                             ${ (slideData.imageUrl || slideData.videoUrl) ? `
-                                <div class="flex flex-col items-center justify-center p-4 bg-white/50 border border-black/10 rounded-2xl shadow-sm max-h-[70vh] overflow-hidden">
+                                <div class="flex flex-col items-center justify-center p-4 bg-white/50 border border-black/10 rounded-2xl shadow-sm max-h-[70vh] overflow-hidden mt-[1vh]">
                                     ${ slideData.videoUrl ? renderVideoPlayer(slideData.videoUrl) : '' }
                                     ${ (slideData.imageUrl && !slideData.videoUrl) ? renderImageViewer(slideData.imageUrl) : '' }
                                 </div>
@@ -533,6 +541,45 @@
                     Your current web browser configuration does not support embed video tags.
                 </video>
             `;
+        }
+
+        // Dynamic Agenda Builder for the Single-Page View
+        function buildAgendaView() {
+            const listContainer = document.getElementById('agenda-list');
+            listContainer.innerHTML = '';
+
+            slideDates.forEach(date => {
+                const topic = agendaMap[date];
+                const activeHighlight = date === activeDate ? 'border-l-4 border-black pl-4 font-bold' : 'hover:bg-black/5 pl-2';
+
+                const item = document.createElement('div');
+                item.className = `flex flex-col md:flex-row md:items-center justify-between py-4 border-b border-black/5 cursor-pointer transition-all rounded-lg ${activeHighlight}`;
+                item.onclick = () => setTargetDate(date);
+
+                item.innerHTML = `
+                    <div class="flex-1">
+                        <span class="font-sans text-xs uppercase tracking-wider text-neutral-500 block">Date Block</span>
+                        <span class="text-xl md:text-2xl font-bold text-black">${date}</span>
+                    </div>
+                    <div class="flex-1 mt-1 md:mt-0 text-left md:text-right">
+                        <span class="font-sans text-xs uppercase tracking-wider text-neutral-500 block">Assigned Topic</span>
+                        <span class="text-lg md:text-xl font-medium text-neutral-700 italic">${topic}</span>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function toggleAgenda(show) {
+            const agenda = document.getElementById('agenda-view');
+            if (show) {
+                buildAgendaView(); // refresh values
+                agenda.classList.remove('hidden');
+                agenda.classList.add('flex');
+            } else {
+                agenda.classList.add('hidden');
+                agenda.classList.remove('flex');
+            }
         }
 
         // ==========================================
@@ -615,7 +662,12 @@
                 lastActiveIdx = activeIndex;
                 
                 const activeSlide = slideIndices[activeIndex];
-                if (activeSlide) {
+                const activeData = activeSlides[activeIndex];
+                
+                if (activeSlide && activeData) {
+                    // Update the HTML document title dynamically with current slide topic and title
+                    document.title = `${activeData.topic} — ${activeData.title || 'Slide ' + (activeIndex + 1)}`;
+                    
                     const duration = parseInt(activeSlide.dataset.timer) || 0;
                     startTimer(duration);
                 }
@@ -626,25 +678,6 @@
             if (index < 0 || index >= slideIndices.length) return;
             const targetElement = slideIndices[index];
             targetElement.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // Sync and setup the Select dropdown element
-        function populateDateSelector() {
-            const selectEl = document.getElementById('date-override-selector');
-            selectEl.innerHTML = '';
-            
-            slideDates.forEach(date => {
-                const opt = document.createElement('option');
-                opt.value = date;
-                opt.textContent = date;
-                selectEl.appendChild(opt);
-            });
-
-            selectEl.addEventListener('change', (e) => {
-                if (e.target.value) {
-                    setTargetDate(e.target.value);
-                }
-            });
         }
 
         // Captured Scroll Actions
@@ -664,6 +697,8 @@
                 navigateToSlide(activeIndex - 1);
             } else if (e.key === 'f' || e.key === 'F') {
                 toggleFullScreenMode();
+            } else if (e.key === 'Escape') {
+                toggleAgenda(false);
             }
         });
 
@@ -702,9 +737,9 @@
         // Mock Sandbox Data in case CSV URL is broken or offline
         function loadMockDemo() {
             const mockData = [
-                { date: "Monday, June 15, 2026", title: "Intro to Electrostatics", text: "Today we will analyze Coulomb's Law:\n\n$$F = k_e \\frac{q_1 q_2}{r^2}$$\n\nWhere:\n* $F$ is electrical force\n* $q_1, q_2$ are charges [write answer here]\n* $r$ is displacement distance between charges.", timer: "120" },
-                { date: "", title: "The Concept of Electric Field", text: "An **Electric Field** ($E$) is defined mathematically as the force per unit positive charge:\n\n$$E = \\frac{F}{q}$$\n\n[ ] Draw the corresponding field map inside your laboratory booklets.", timer: "300" },
-                { date: "Tuesday, June 16, 2026", title: "Conventional Current Review", text: "Remember the following distinction:\n\n* **Conventional Current** flow positive to negative.\n* **Electron Drift** moves negative to positive.\n\n$$\\Delta Q = I \\cdot \\Delta t$$", timer: "60" }
+                { date: "Monday, June 15, 2026", topic: "Intro to Electrostatics", title: "Electrostatic Forces", text: "Today we will analyze Coulomb's Law:\n\n$$F = k_e \\frac{q_1 q_2}{r^2}$$\n\nWhere:\n* $F$ is electrical force\n* $q_1, q_2$ are charges [write answer here]\n* $r$ is displacement distance between charges.", timer: "120" },
+                { date: "", topic: "", title: "The Concept of Electric Field", text: "An **Electric Field** ($E$) is defined mathematically as the force per unit positive charge:\n\n$$E = \\frac{F}{q}$$\n\n[ ] Draw the corresponding field map inside your laboratory booklets.", timer: "300" },
+                { date: "Tuesday, June 16, 2026", topic: "Conventional Current Review", title: "Electron Movement Basics", text: "Remember the following distinction:\n\n* **Conventional Current** flow positive to negative.\n* **Electron Drift** moves negative to positive.\n\n$$\\Delta Q = I \\cdot \\Delta t$$", timer: "60" }
             ];
             processCSVRows(mockData);
         }
