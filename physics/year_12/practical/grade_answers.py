@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from typing import List
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 
 # =====================================================================
 # HARDCODED CONFIGURATION
@@ -59,6 +59,30 @@ class GradingResult(BaseModel):
     overall_feedback: str
     overall_grade: str = Field(description="Must be exactly one of: N, A, M, E")
 
+
+def find_assessment(result, q_num, position):
+    """
+    Match a QuestionAssessment to a question row.
+
+    The model is asked to echo back the exact 'q#' identifier, but question
+    titles in the source CSV often have their own (different) numbering
+    scheme, e.g. 'a) CONTROL VARIABLE 1' or '6. Equation...' for what is
+    actually row q7. That occasionally leads the model to copy the title's
+    numbering into the 'number' field instead of the real id, which makes a
+    naive exact-string match fail for every question. To stay robust against
+    that, we try an exact (case/whitespace-insensitive) match first, and fall
+    back to positional matching (assessments are expected in the same order
+    the questions were presented in the prompt).
+    """
+    q_num_norm = str(q_num).strip().lower()
+    for item in result.question_assessments:
+        if str(item.number).strip().lower() == q_num_norm:
+            return item
+    if 0 <= position < len(result.question_assessments):
+        return result.question_assessments[position]
+    return None
+
+
 # =====================================================================
 # MAIN LOGIC
 # =====================================================================
@@ -66,17 +90,15 @@ def main():
     parser = argparse.ArgumentParser(description="Grade student answers using Gemini 2.5 Flash.")
     parser.add_argument("-i", "--input", required=True, help="Input CSV file")
     parser.add_argument("-o", "--output", help="Output directory. Defaults to input filename sans .csv")
+    parser.add_argument("-l", "--limit", type=int, help="Stop after grading this many NEW students.")
     args = parser.parse_args()
 
     # Determine output directory
     input_csv = args.input
     out_dir = args.output if args.output else os.path.splitext(os.path.basename(input_csv))[0]
 
-    try:
-        os.makedirs(out_dir, exist_ok=False)
-    except FileExistsError:
-        print(f"Error: Output directory '{out_dir}' already exists. Please remove it or provide a new name.", file=sys.stderr)
-        sys.exit(1)
+    # We now allow the directory to exist so we can resume progress
+    os.makedirs(out_dir, exist_ok=True)
 
     load_dotenv()
     if not os.environ.get("GEMINI_API_KEY"):
@@ -103,9 +125,37 @@ def main():
     student_cols = df.columns[3:].tolist()
     
     student_results = {}
+    skip_students = set()
+    prev_df = None
+    out_csv_path = os.path.join(out_dir, "graded_answers.csv")
+
+    # Resume state logic
+    if os.path.exists(out_csv_path):
+        print(f"Found existing output at {out_csv_path}. Attempting to resume...")
+        prev_df = pd.read_csv(out_csv_path)
+        # Find the overall grade row to determine who is already fully graded
+        overall_g_rows = prev_df[prev_df[std_cols[0]].astype(str) == 'g']
+        if not overall_g_rows.empty:
+            overall_g_row = overall_g_rows.iloc[-1]
+            for student in student_cols:
+                if student in prev_df.columns:
+                    val = str(overall_g_row.get(student, "")).strip()
+                    if val in ['N', 'A', 'M', 'E']:
+                        skip_students.add(student)
+        print(f"Resuming: {len(skip_students)} students already graded. {len(student_cols) - len(skip_students)} remaining.")
 
     print("\nStarting grading process...")
+    graded_count = 0
     for idx, student in enumerate(student_cols):
+        if student in skip_students:
+            print(f"Skipping student {idx+1}/{len(student_cols)} (Already graded)...")
+            continue
+
+        # Stop if we hit the user-defined limit on NEWLY graded students
+        if args.limit and graded_count >= args.limit:
+            print(f"\nLimit of {args.limit} new students reached. Stopping.")
+            break
+
         print(f"Grading student {idx+1}/{len(student_cols)} (Anonymized for API)...")
         
         # Build prompt without identifying student name
@@ -118,22 +168,36 @@ def main():
             prompt_text += f"Question Text: {row[std_cols[2]]}\n"
             prompt_text += f"Student Answer:\n{ans}\n\n"
 
+        prompt_text += (
+            "IMPORTANT: In your JSON response, the 'number' field for each question assessment must be "
+            "the exact identifier shown right after the word 'Question' above (e.g. 'q1', 'q3', 'q7'). "
+            "Do NOT use the numbering or lettering that appears inside the question title itself "
+            "(e.g. 'a)', '6.') for this field — those do not necessarily match the question's actual id.\n"
+        )
+
         contents = uploaded_files + [prompt_text]
         
-        # Changed model from gemini-1.5-flash to gemini-2.5-flash to resolve 404
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=GradingResult,
-                temperature=0.2, 
-            ),
-        )
-        
-        # Parse output
-        result_data = GradingResult.model_validate_json(response.text)
-        student_results[student] = result_data
+        try:
+            # Changed model from gemini-1.5-flash to gemini-2.5-flash to resolve 404
+            response = client.models.generate_content(
+                # model='gemini-2.5-flash',
+                model='gemini-3.1-flash-lite',
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=GradingResult,
+                    temperature=0.2, 
+                ),
+            )
+            
+            # Parse output
+            result_data = GradingResult.model_validate_json(response.text)
+            student_results[student] = result_data
+            graded_count += 1
+        except Exception as e:
+            print(f"\n[ERROR] API request failed while grading student {idx+1}: {e}")
+            print("Halting grading gracefully and proceeding to save partial results...")
+            break
 
     # =====================================================================
     # CSV RECONSTRUCTION
@@ -141,7 +205,7 @@ def main():
     print("\nReconstructing CSV...")
     new_rows = []
     
-    for _, row in df.iterrows():
+    for q_idx, (_, row) in enumerate(df.iterrows()):
         q_num = str(row[std_cols[0]])
         new_rows.append(row.to_dict())
         
@@ -149,12 +213,22 @@ def main():
         g_row = {std_cols[0]: q_num.replace('q', 'g'), std_cols[1]: 'Grade', std_cols[2]: ''}
         
         for student in student_cols:
-            assessment = next((item for item in student_results[student].question_assessments if item.number == q_num), None)
-            if assessment:
-                f_row[student] = assessment.feedback
-                g_row[student] = assessment.grade
+            if student in student_results:
+                assessment = find_assessment(student_results[student], q_num, q_idx)
+                if assessment:
+                    f_row[student] = assessment.feedback
+                    g_row[student] = assessment.grade
+                else:
+                    f_row[student] = "ERROR"
+                    g_row[student] = "N/A"
+            elif student in skip_students and prev_df is not None:
+                # Splice in data from the previous run
+                prev_f = prev_df[prev_df[std_cols[0]].astype(str) == q_num.replace('q', 'f')]
+                prev_g = prev_df[prev_df[std_cols[0]].astype(str) == q_num.replace('q', 'g')]
+                f_row[student] = prev_f.iloc[0][student] if not prev_f.empty else "ERROR"
+                g_row[student] = prev_g.iloc[0][student] if not prev_g.empty else "N/A"
             else:
-                f_row[student] = "ERROR"
+                f_row[student] = "UNGRADED (API Failure/Halted)"
                 g_row[student] = "N/A"
                 
         new_rows.append(f_row)
@@ -164,9 +238,19 @@ def main():
     overall_g_row = {std_cols[0]: 'g', std_cols[1]: 'Overall Grade', std_cols[2]: ''}
     
     for student in student_cols:
-        overall_f_row[student] = student_results[student].overall_feedback
-        overall_g_row[student] = student_results[student].overall_grade
-        
+        if student in student_results:
+            overall_f_row[student] = student_results[student].overall_feedback
+            overall_g_row[student] = student_results[student].overall_grade
+        elif student in skip_students and prev_df is not None:
+            # Splice in overall data from previous run
+            prev_overall_f = prev_df[prev_df[std_cols[0]].astype(str) == 'f']
+            prev_overall_g = prev_df[prev_df[std_cols[0]].astype(str) == 'g']
+            overall_f_row[student] = prev_overall_f.iloc[-1][student] if not prev_overall_f.empty else "ERROR"
+            overall_g_row[student] = prev_overall_g.iloc[-1][student] if not prev_overall_g.empty else "N/A"
+        else:
+            overall_f_row[student] = "UNGRADED (API Failure/Halted)"
+            overall_g_row[student] = "N/A"
+            
     new_rows.append(overall_f_row)
     new_rows.append(overall_g_row)
     
@@ -185,6 +269,14 @@ def main():
         return f"grade-{grade.upper()}" if grade.upper() in ['N', 'A', 'M', 'E'] else "grade-N"
         
     for student in student_cols:
+        if student in skip_students:
+            print(f"Skipping HTML report for {student} (already generated during previous run).")
+            continue
+            
+        if student not in student_results:
+            print(f"Skipping HTML report for {student} (no grading data).")
+            continue
+            
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -215,9 +307,9 @@ def main():
             <h1>Assessment Report: {student}</h1>
         """
         
-        for _, row in df.iterrows():
+        for q_idx, (_, row) in enumerate(df.iterrows()):
             q_num = str(row[std_cols[0]])
-            assessment = next((item for item in student_results[student].question_assessments if item.number == q_num), None)
+            assessment = find_assessment(student_results[student], q_num, q_idx)
             
             html_content += f"""
             <div class="question-block">
