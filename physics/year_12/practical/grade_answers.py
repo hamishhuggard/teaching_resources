@@ -41,8 +41,13 @@ Grading Instructions:
 2. Help them address as many points as they can to get a high grade, but prioritize the achievement criteria first. Prompt them to think about why they choose a maximum and minimum value for the independent variable etc.
 3. They should link the experiment to existing physics. They have already completed the ncea level 2 mechanics topic, so should know this stuff. 
 4. Assess their answers based on the rubric.
-5. For each answer, inject inline annotations by adding exactly this format: [ANNOTATION: your comment here]. Do not alter their original text, just insert these annotations where appropriate to point out errors or good points.
+5. For each answer, inject inline annotations by adding exactly this format: [ANNOTATION: your comment here]. Do not alter their original text, just insert these annotations where appropriate to point out errors or good points. 
+5b. If some particular sentence would earn an E or M or A point, then say add an annotation like "A. [explanation]"
 6. Provide an overall feedback summary and a grade of N (Not Achieved), A (Achieved), M (Merit), or E (Excellence).
+7. Focus on giving strategy advice about how the student can improve for the next experiment. Minor errors need minimal commentary.
+8. In the per-question feedback, explain how the student could have gotten to a perfect answer. Show them an improved version of their answer which would get maximum points. 
+9. For the overall feedback, give itemized bulletpoints for what the student should change next time to improve their grade (in descending order of impact)
+10. There are three questions about control variables, but 1 is fine. Don't tell students they need to describe more control variables.
 """
 
 # =====================================================================
@@ -62,17 +67,7 @@ class GradingResult(BaseModel):
 
 def find_assessment(result, q_num, position):
     """
-    Match a QuestionAssessment to a question row.
-
-    The model is asked to echo back the exact 'q#' identifier, but question
-    titles in the source CSV often have their own (different) numbering
-    scheme, e.g. 'a) CONTROL VARIABLE 1' or '6. Equation...' for what is
-    actually row q7. That occasionally leads the model to copy the title's
-    numbering into the 'number' field instead of the real id, which makes a
-    naive exact-string match fail for every question. To stay robust against
-    that, we try an exact (case/whitespace-insensitive) match first, and fall
-    back to positional matching (assessments are expected in the same order
-    the questions were presented in the prompt).
+    Match a QuestionAssessment to a question row by exact q_num or by positional index.
     """
     q_num_norm = str(q_num).strip().lower()
     for item in result.question_assessments:
@@ -87,7 +82,7 @@ def find_assessment(result, q_num, position):
 # MAIN LOGIC
 # =====================================================================
 def main():
-    parser = argparse.ArgumentParser(description="Grade student answers using Gemini 2.5 Flash.")
+    parser = argparse.ArgumentParser(description="Grade student answers using Gemini API.")
     parser.add_argument("-i", "--input", required=True, help="Input CSV file")
     parser.add_argument("-o", "--output", help="Output directory. Defaults to input filename sans .csv")
     parser.add_argument("-l", "--limit", type=int, help="Stop after grading this many NEW students.")
@@ -97,7 +92,6 @@ def main():
     input_csv = args.input
     out_dir = args.output if args.output else os.path.splitext(os.path.basename(input_csv))[0]
 
-    # We now allow the directory to exist so we can resume progress
     os.makedirs(out_dir, exist_ok=True)
 
     load_dotenv()
@@ -113,7 +107,6 @@ def main():
     for file_path in REFERENCE_FILES:
         if os.path.exists(file_path):
             print(f"  Uploading {file_path}...")
-            # We let genai automatically detect mime type
             uploaded_file = client.files.upload(file=file_path)
             uploaded_files.append(uploaded_file)
         else:
@@ -121,8 +114,24 @@ def main():
 
     # Read CSV
     df = pd.read_csv(input_csv)
-    std_cols = df.columns[:3].tolist() # number, title, text
-    student_cols = df.columns[3:].tolist()
+    
+    # DYNAMIC COLUMN DETECTION (Fixes the issue where Student cols were treated as text)
+    first_student_idx = -1
+    for i, col in enumerate(df.columns):
+        if 'student' in col.lower():
+            first_student_idx = i
+            break
+            
+    # If we couldn't find a column with "student" in the name, fallback to assuming 
+    # the first column is metadata and the rest are students.
+    if first_student_idx == -1 or first_student_idx == 0:
+        first_student_idx = 1
+        
+    std_cols = df.columns[:first_student_idx].tolist()
+    student_cols = df.columns[first_student_idx:].tolist()
+    
+    print(f"Detected Metadata Columns: {std_cols}")
+    print(f"Detected Student Columns: {len(student_cols)} students found.")
     
     student_results = {}
     skip_students = set()
@@ -134,7 +143,7 @@ def main():
         print(f"Found existing output at {out_csv_path}. Attempting to resume...")
         prev_df = pd.read_csv(out_csv_path)
         # Find the overall grade row to determine who is already fully graded
-        overall_g_rows = prev_df[prev_df[std_cols[0]].astype(str) == 'g']
+        overall_g_rows = prev_df[prev_df[std_cols[0]].astype(str) == 'overall_grade']
         if not overall_g_rows.empty:
             overall_g_row = overall_g_rows.iloc[-1]
             for student in student_cols:
@@ -151,37 +160,38 @@ def main():
             print(f"Skipping student {idx+1}/{len(student_cols)} (Already graded)...")
             continue
 
-        # Stop if we hit the user-defined limit on NEWLY graded students
         if args.limit and graded_count >= args.limit:
             print(f"\nLimit of {args.limit} new students reached. Stopping.")
             break
 
         print(f"Grading student {idx+1}/{len(student_cols)} (Anonymized for API)...")
         
-        # Build prompt without identifying student name
+        # Build prompt
         prompt_text = f"{PREAMBLE}\n\nHere are the answers for a single student. Please assess them.\n\n"
         
-        for _, row in df.iterrows():
-            # Handle potential NaNs in answers
+        for q_idx, row in df.iterrows():
+            q_num = f"q{q_idx+1}" # Explicit internal numbering to prevent confusion
             ans = str(row[student]) if pd.notna(row[student]) else "[No answer provided]"
-            prompt_text += f"--- Question {row[std_cols[0]]}: {row[std_cols[1]]} ---\n"
-            prompt_text += f"Question Text: {row[std_cols[2]]}\n"
+            
+            prompt_text += f"--- Question {q_num} ---\n"
+            # Append whatever metadata columns we have (Title, Text, etc.)
+            for meta_col in std_cols:
+                prompt_text += f"{meta_col}: {row[meta_col]}\n"
             prompt_text += f"Student Answer:\n{ans}\n\n"
 
         prompt_text += (
             "IMPORTANT: In your JSON response, the 'number' field for each question assessment must be "
-            "the exact identifier shown right after the word 'Question' above (e.g. 'q1', 'q3', 'q7'). "
-            "Do NOT use the numbering or lettering that appears inside the question title itself "
-            "(e.g. 'a)', '6.') for this field — those do not necessarily match the question's actual id.\n"
+            "the exact identifier shown right after the word 'Question' above (e.g. 'q1', 'q2', 'q3'). "
+            "Do NOT use the numbering or lettering that appears inside the question title itself.\n"
         )
 
         contents = uploaded_files + [prompt_text]
         
         try:
-            # Changed model from gemini-1.5-flash to gemini-2.5-flash to resolve 404
+            # Model easily switchable via comments
             response = client.models.generate_content(
-                # model='gemini-2.5-flash',
                 model='gemini-3.1-flash-lite',
+                # model='gemini-2.5-flash',
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -206,11 +216,18 @@ def main():
     new_rows = []
     
     for q_idx, (_, row) in enumerate(df.iterrows()):
-        q_num = str(row[std_cols[0]])
+        q_num = f"q{q_idx+1}"
         new_rows.append(row.to_dict())
         
-        f_row = {std_cols[0]: q_num.replace('q', 'f'), std_cols[1]: 'Feedback', std_cols[2]: ''}
-        g_row = {std_cols[0]: q_num.replace('q', 'g'), std_cols[1]: 'Grade', std_cols[2]: ''}
+        # Initialize dynamically based on how many std_cols exist
+        f_row = {col: "" for col in std_cols}
+        g_row = {col: "" for col in std_cols}
+        
+        f_row[std_cols[0]] = f"{q_num}_feedback"
+        if len(std_cols) > 1: f_row[std_cols[1]] = "Feedback"
+        
+        g_row[std_cols[0]] = f"{q_num}_grade"
+        if len(std_cols) > 1: g_row[std_cols[1]] = "Grade"
         
         for student in student_cols:
             if student in student_results:
@@ -222,33 +239,37 @@ def main():
                     f_row[student] = "ERROR"
                     g_row[student] = "N/A"
             elif student in skip_students and prev_df is not None:
-                # Splice in data from the previous run
-                prev_f = prev_df[prev_df[std_cols[0]].astype(str) == q_num.replace('q', 'f')]
-                prev_g = prev_df[prev_df[std_cols[0]].astype(str) == q_num.replace('q', 'g')]
+                # Splice in data from the previous run using our explicit tags
+                prev_f = prev_df[prev_df[std_cols[0]].astype(str) == f"{q_num}_feedback"]
+                prev_g = prev_df[prev_df[std_cols[0]].astype(str) == f"{q_num}_grade"]
                 f_row[student] = prev_f.iloc[0][student] if not prev_f.empty else "ERROR"
                 g_row[student] = prev_g.iloc[0][student] if not prev_g.empty else "N/A"
             else:
-                f_row[student] = "UNGRADED (API Failure/Halted)"
+                f_row[student] = "UNGRADED"
                 g_row[student] = "N/A"
                 
         new_rows.append(f_row)
         new_rows.append(g_row)
         
-    overall_f_row = {std_cols[0]: 'f', std_cols[1]: 'Overall Feedback', std_cols[2]: ''}
-    overall_g_row = {std_cols[0]: 'g', std_cols[1]: 'Overall Grade', std_cols[2]: ''}
+    overall_f_row = {col: "" for col in std_cols}
+    overall_f_row[std_cols[0]] = 'overall_feedback'
+    if len(std_cols) > 1: overall_f_row[std_cols[1]] = 'Overall Feedback'
+    
+    overall_g_row = {col: "" for col in std_cols}
+    overall_g_row[std_cols[0]] = 'overall_grade'
+    if len(std_cols) > 1: overall_g_row[std_cols[1]] = 'Overall Grade'
     
     for student in student_cols:
         if student in student_results:
             overall_f_row[student] = student_results[student].overall_feedback
             overall_g_row[student] = student_results[student].overall_grade
         elif student in skip_students and prev_df is not None:
-            # Splice in overall data from previous run
-            prev_overall_f = prev_df[prev_df[std_cols[0]].astype(str) == 'f']
-            prev_overall_g = prev_df[prev_df[std_cols[0]].astype(str) == 'g']
+            prev_overall_f = prev_df[prev_df[std_cols[0]].astype(str) == 'overall_feedback']
+            prev_overall_g = prev_df[prev_df[std_cols[0]].astype(str) == 'overall_grade']
             overall_f_row[student] = prev_overall_f.iloc[-1][student] if not prev_overall_f.empty else "ERROR"
             overall_g_row[student] = prev_overall_g.iloc[-1][student] if not prev_overall_g.empty else "N/A"
         else:
-            overall_f_row[student] = "UNGRADED (API Failure/Halted)"
+            overall_f_row[student] = "UNGRADED"
             overall_g_row[student] = "N/A"
             
     new_rows.append(overall_f_row)
@@ -270,11 +291,9 @@ def main():
         
     for student in student_cols:
         if student in skip_students:
-            print(f"Skipping HTML report for {student} (already generated during previous run).")
             continue
             
         if student not in student_results:
-            print(f"Skipping HTML report for {student} (no grading data).")
             continue
             
         html_content = f"""
@@ -304,25 +323,26 @@ def main():
             </style>
         </head>
         <body>
-            <h1>Assessment Report: {student}</h1>
+            <h1>Practice Assessment: {student}</h1>
         """
         
         for q_idx, (_, row) in enumerate(df.iterrows()):
-            q_num = str(row[std_cols[0]])
+            q_num = f"q{q_idx+1}"
             assessment = find_assessment(student_results[student], q_num, q_idx)
+            
+            # Safely grab title and text based on what columns exist in your CSV
+            q_title = str(row[std_cols[0]]) if len(std_cols) > 0 else f"Question {q_idx+1}"
+            q_text = str(row[std_cols[1]]) if len(std_cols) > 1 else ""
             
             html_content += f"""
             <div class="question-block">
-                <h3>{row[std_cols[1]]} ({q_num})</h3>
-                <div class="q-text">{row[std_cols[2]]}</div>
+                <h3>{q_title} ({q_num})</h3>
+                <div class="q-text">{q_text}</div>
             """
             
             if assessment:
-                # Parse [ANNOTATION: text] into beautiful HTML tags
                 annotated_text = assessment.annotated_answer
-                # Escape html brackets just in case, before regex
                 annotated_text = annotated_text.replace('<', '&lt;').replace('>', '&gt;')
-                # Convert annotations to styled span elements
                 annotated_text = re.sub(
                     r'\[ANNOTATION:\s*(.*?)\]', 
                     r'<span class="annotation">📝 \1</span>', 
@@ -360,7 +380,7 @@ def main():
         with open(os.path.join(html_dir, f"{safe_student_name}_report.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
             
-    print(f"Saved {len(student_cols)} HTML reports to {html_dir}/")
+    print(f"Saved generated HTML reports to {html_dir}/")
     
     # Cleanup files
     if uploaded_files:
