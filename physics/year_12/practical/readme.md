@@ -1,0 +1,9 @@
+Physics Practical Investigation Grading CLIAutomates NCEA Level 2 Physics Practical (AS 91168) grading using Gemini 1.5 Flash. It sanitizes student names for privacy, uploads reference materials, parses inline feedback, and generates grading reports.SetupInstall Dependencies:pip install pandas pydantic python-dotenv google-genai
+Set API Key: Create a .env file in the script's directory:GEMINI_API_KEY=your_api_key_here
+Convert Word Documents: Convert any older .doc references (e.g., physics2_1B_v3_NZQA 151119.doc) to .pdf or .txt before running.Input Structure1. Reference Files (in the working directory)AS 91168 Clarification.txtphysics2_1B_v3_NZQA 151119.pdfas91168.pdflvl 2 practical investigation.pdf91168-EXP-student1-001.pdf through student5-001.pdf2. Student Answers CSV (answers.csv)numberquestion titlequestion textStudent Name 1Student Name 2q1Independent VariableWhy did you choose...Student answer...Student answer...q2Plotting DataCopy paste the...Student answer...Student answer...Usagepython grade_answers.py -i answers.csv [-o output_directory]
+Note: The CLI will throw an error if the output directory already exists.Output StructureThe output directory will contain:📂 [output_directory]/
+├── 📄 graded_answers.csv
+└── 📂 html_reports/
+    ├── 📄 Student Name 1_report.html
+    └── 📄 Student Name 2_report.html
+1. graded_answers.csvThe original CSV layout with inserted feedback (f) and grade (g) rows directly beneath each question:q1 (Original Answer) -> f1 (AI Feedback) -> g1 (AI Grade: N, A, M, E)q2 -> f2 -> g2 ...f (Overall Feedback) -> g (Overall Grade)2. HTML ReportsAnonymized submissions are mapped back to actual student names locally to generate a clean HTML page for each student featuring:Responsive, clean typography.Clear separation of questions, student answers, and AI critiques.High-visibility color badges for NCEA grades (N, A, M, E).Highlighted inline annotations (📝 Annotation) parsed automatically from the model's critique.
