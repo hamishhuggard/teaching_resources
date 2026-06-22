@@ -25,14 +25,14 @@
         @keyframes pulseText { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden text-gray-800">
+<body class="min-h-screen flex flex-col text-gray-800">
 
-    <div class="flex-1 flex items-center justify-center p-4 relative">
+    <div class="flex-1 flex p-4 relative">
        
         <!-- ========================================== -->
         <!--                 START SCREEN               -->
         <!-- ========================================== -->
-        <div id="view-start" class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center slide-up">
+        <div id="view-start" class="m-auto w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center slide-up">
             <h1 class="text-5xl font-black text-blue-600 mb-2">Study Dash</h1>
             <p class="text-gray-500 mb-8 font-bold">10-Minute Challenge</p>
            
@@ -48,7 +48,7 @@
         <!-- ========================================== -->
         <!--                 GAME SCREEN                -->
         <!-- ========================================== -->
-        <div id="view-game" class="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl text-center hidden slide-up flex-col h-[90vh] max-h-[800px]">
+        <div id="view-game" class="m-auto w-full max-w-md bg-white p-6 rounded-2xl shadow-xl text-center hidden slide-up flex-col">
             <!-- Header Stats -->
             <div class="flex justify-between items-center mb-4 border-b pb-3 shrink-0">
                 <div class="flex flex-col text-left">
@@ -66,9 +66,9 @@
             </div>
            
             <!-- Question Area -->
-            <div class="flex-1 flex flex-col items-center justify-center min-h-[150px] mb-4 overflow-y-auto w-full">
+            <div class="flex-1 flex flex-col items-center justify-center min-h-[150px] mb-4 w-full">
                 <h2 id="question-text" class="text-2xl font-bold text-gray-800 w-full mb-4 px-2">Loading...</h2>
-                <img id="question-image" class="hidden max-h-48 mx-auto rounded-xl shadow-sm mb-4 object-contain" src="" alt="Question Image">
+                <img id="question-image" class="hidden max-h-64 mx-auto rounded-xl shadow-sm mb-4 object-contain" src="" alt="Question Image">
             </div>
            
             <!-- Feedback -->
@@ -87,7 +87,8 @@
         <!-- ========================================== -->
         <!--                 END SCREEN                 -->
         <!-- ========================================== -->
-        <div id="view-end" class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center hidden slide-up overflow-y-auto max-h-[90vh]">
+        <div id="view-end" class="m-auto w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center hidden slide-up">
+
             <h1 class="text-5xl font-black text-gray-800 mb-2">Time's Up!</h1>
             <p class="text-gray-500 font-bold mb-6 text-lg">Here is how you did.</p>
            
