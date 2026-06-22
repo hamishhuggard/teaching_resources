@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solo Study Game</title>
+   
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+   
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- PapaParse for parsing the Google Sheets CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+        body { font-family: 'Nunito', sans-serif; background-color: #eff6ff; }
+        .slide-up { animation: slideUp 0.4s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pulse-text { animation: pulseText 1.5s infinite; }
+        @keyframes pulseText { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.05); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-gray-800">
+
+    <div class="flex-1 flex items-center justify-center p-4 relative">
+       
+        <!-- ========================================== -->
+        <!--                 START SCREEN               -->
+        <!-- ========================================== -->
+        <div id="view-start" class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center slide-up">
+            <h1 class="text-5xl font-black text-blue-600 mb-2">Study Dash</h1>
+            <p class="text-gray-500 mb-8 font-bold">10-Minute Challenge</p>
+           
+            <div id="loading-indicator" class="text-xl font-bold text-gray-400 mb-4 pulse-text">
+                Fetching questions...
+            </div>
+           
+            <button id="btn-start" onclick="startGame()" disabled class="w-full bg-gray-400 text-white font-black py-4 rounded-xl transition shadow-lg text-2xl uppercase tracking-wide cursor-not-allowed hidden">
+                Start Game
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!--                 GAME SCREEN                -->
+        <!-- ========================================== -->
+        <div id="view-game" class="w-full max-w-md bg-white p-6 rounded-2xl shadow-xl text-center hidden slide-up flex-col h-[90vh] max-h-[800px]">
+            <!-- Header Stats -->
+            <div class="flex justify-between items-center mb-4 border-b pb-3 shrink-0">
+                <div class="flex flex-col text-left">
+                    <span class="font-black text-gray-400 text-sm uppercase tracking-wider">Score</span>
+                    <span class="bg-yellow-400 text-yellow-900 px-4 py-1 rounded-full font-black text-lg shadow-sm"><span id="player-coins">0</span> 🪙</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="font-black text-gray-400 text-sm uppercase tracking-wider">Streak</span>
+                    <span class="text-orange-500 font-black text-xl"><span id="player-streak">0</span> 🔥</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="font-black text-gray-400 text-sm uppercase tracking-wider">Time</span>
+                    <span class="text-red-500 font-black text-2xl timer-display" id="timer-text">10:00</span>
+                </div>
+            </div>
+           
+            <!-- Question Area -->
+            <div class="flex-1 flex flex-col items-center justify-center min-h-[150px] mb-4 overflow-y-auto w-full">
+                <h2 id="question-text" class="text-2xl font-bold text-gray-800 w-full mb-4 px-2">Loading...</h2>
+                <img id="question-image" class="hidden max-h-48 mx-auto rounded-xl shadow-sm mb-4 object-contain" src="" alt="Question Image">
+            </div>
+           
+            <!-- Feedback -->
+            <div id="feedback-area" class="h-16 mb-2 font-bold text-lg flex items-center justify-center shrink-0"></div>
+
+            <!-- Input & Actions -->
+            <div class="shrink-0 w-full">
+                <input type="text" id="answer-input" placeholder="Type answer & press Enter" oninput="toggleSubmitButton()" onkeypress="handleEnter(event)" autocomplete="off" class="w-full px-4 py-4 text-xl border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none mb-4 text-center font-bold shadow-inner">
+               
+                <button id="submit-btn" onclick="submitAnswer()" class="w-full bg-green-500 text-white font-black py-4 rounded-xl hidden hover:bg-green-600 active:scale-95 transition shadow-lg text-xl uppercase tracking-wide">Submit Answer</button>
+                <button id="give-up-btn" onclick="giveUp()" class="w-full bg-gray-400 text-white font-black py-4 rounded-xl hover:bg-gray-500 active:scale-95 transition shadow-lg text-xl uppercase tracking-wide">Give Up / Skip</button>
+                <button id="next-btn" onclick="nextQuestion()" class="w-full bg-blue-500 text-white font-black py-4 rounded-xl hidden hover:bg-blue-600 active:scale-95 pulse-text transition shadow-lg text-xl uppercase tracking-wide">Next Question ➔</button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!--                 END SCREEN                 -->
+        <!-- ========================================== -->
+        <div id="view-end" class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl text-center hidden slide-up overflow-y-auto max-h-[90vh]">
+            <h1 class="text-5xl font-black text-gray-800 mb-2">Time's Up!</h1>
+            <p class="text-gray-500 font-bold mb-6 text-lg">Here is how you did.</p>
+           
+            <div class="bg-yellow-100 border-2 border-yellow-300 text-yellow-800 p-6 rounded-2xl inline-block w-full shadow-sm mb-8">
+                <span class="block text-sm uppercase tracking-widest font-black mb-1">Final Score</span>
+                <span class="font-black text-5xl"><span id="final-coins">0</span> 🪙</span>
+            </div>
+           
+            <div id="end-game-message" class="text-left text-gray-700 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-inner">
+                <!-- Review content injected here -->
+            </div>
+
+            <button onclick="location.reload()" class="w-full mt-8 bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 active:scale-95 transition shadow-lg text-xl uppercase tracking-wide">Play Again</button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/1At0ziXHmpXRjloLptcgIHYyIUNZX2whsMm-or1AQtRQ/export?format=csv&gid=0&single=true";
+        const TOTAL_TIME = 600; // 10 minutes in seconds
+
+        // --- STATE ---
+        let questionsDB = [];
+        let myQueue = [];
+        let currentQuestionObj = null;
+        let myScore = 0;
+        let myStreak = 0;
+        let myHistory = {};
+        let timeRemaining = TOTAL_TIME;
+        let timerInterval = null;
+
+        // --- AUDIO SYNTHESIS ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration, vol=0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        function playCorrectSound() { playTone(600, 'sine', 0.1); setTimeout(() => playTone(800, 'sine', 0.2), 100); }
+        function playIncorrectSound() { playTone(300, 'sawtooth', 0.1, 0.15); setTimeout(() => playTone(250, 'sawtooth', 0.3, 0.15), 100); }
+        function playTickSound() { playTone(1000, 'sine', 0.05, 0.1); }
+        function playVictoryFanfare() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                setTimeout(() => playTone(freq, 'sine', 0.4, 0.12), idx * 130);
+            });
+        }
+
+        // --- INITIALIZATION & DATA FETCHING ---
+        window.onload = () => {
+            Papa.parse(CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        questionsDB = results.data.filter(row => row.Question && row.Question.trim() !== "").map((row, index) => {
+                            return {
+                                id: 'q' + index,
+                                q: row.Question.trim(),
+                                img: row.ImageURL ? row.ImageURL.trim() : "",
+                                a: row.Answers ? row.Answers.split('|').map(ans => ans.trim().toLowerCase()) : []
+                            };
+                        });
+                       
+                        // Initialize history tracking for each question
+                        questionsDB.forEach(q => myHistory[q.id] = { attempts: 0, correct: 0 });
+                       
+                        // Update UI to allow starting
+                        document.getElementById('loading-indicator').style.display = 'none';
+                        const btn = document.getElementById('btn-start');
+                        btn.disabled = false;
+                        btn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'hidden');
+                        btn.classList.add('bg-green-500', 'hover:bg-green-600', 'active:scale-95');
+                    } else {
+                        document.getElementById('loading-indicator').innerText = "Error loading questions. Check URL.";
+                        document.getElementById('loading-indicator').classList.add('text-red-500');
+                    }
+                },
+                error: function(err) {
+                    document.getElementById('loading-indicator').innerText = "Failed to fetch CSV.";
+                    console.error("PapaParse Error:", err);
+                }
+            });
+        };
+
+        // --- GAME FLOW ---
+        function startGame() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+           
+            document.getElementById('view-start').style.display = 'none';
+            document.getElementById('view-game').style.display = 'flex';
+           
+            // Start Timer
+            timeRemaining = TOTAL_TIME;
+            updateTimerUI();
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerUI();
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            initPlayerQueue();
+            loadNextQuestion();
+        }
+
+        function updateTimerUI() {
+            const m = Math.floor(timeRemaining / 60);
+            const s = timeRemaining % 60;
+            const tText = document.getElementById('timer-text');
+            tText.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+           
+            if (timeRemaining <= 10 && timeRemaining > 0) {
+                tText.classList.add('pulse-text');
+                playTickSound();
+            }
+        }
+
+        function initPlayerQueue() {
+            myQueue = questionsDB.map(q => q.id).sort(() => Math.random() - 0.5);
+        }
+
+        function loadNextQuestion() {
+            if (myQueue.length === 0) initPlayerQueue();
+           
+            currentQuestionObj = questionsDB.find(q => q.id === myQueue[0]);
+           
+            // Format Bold Text
+            const qEl = document.getElementById('question-text');
+            qEl.innerHTML = currentQuestionObj.q.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+           
+            // Render Math
+            if (window.renderMathInElement) {
+                renderMathInElement(qEl, {
+                    delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+                    throwOnError: false
+                });
+            }
+
+            // Render Image
+            const imgEl = document.getElementById('question-image');
+            if(currentQuestionObj.img) {
+                imgEl.src = currentQuestionObj.img;
+                imgEl.classList.remove('hidden');
+            } else {
+                imgEl.classList.add('hidden');
+                imgEl.src = "";
+            }
+
+            document.getElementById('answer-input').value = '';
+            document.getElementById('answer-input').disabled = false;
+            document.getElementById('answer-input').focus();
+           
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('feedback-area').innerHTML = '';
+           
+            toggleSubmitButton();
+        }
+
+        function toggleSubmitButton() {
+            const v = document.getElementById('answer-input').value.trim();
+            const s = document.getElementById('submit-btn');
+            const g = document.getElementById('give-up-btn');
+           
+            if(document.getElementById('next-btn').style.display !== 'none') {
+                s.style.display='none';
+                g.style.display='none';
+                return;
+            }
+           
+            if(v === '') {
+                s.style.display='none';
+                g.style.display='block';
+            } else {
+                s.style.display='block';
+                g.style.display='none';
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') {
+                if(document.getElementById('submit-btn').style.display !== 'none') submitAnswer();
+                else if(document.getElementById('give-up-btn').style.display !== 'none') giveUp();
+                else if(document.getElementById('next-btn').style.display !== 'none') nextQuestion();
+            }
+        }
+
+        // Fuzzy Matching Algorithm (Levenshtein Distance)
+        function getEditDist(a, b) {
+            if(!a.length) return b.length;
+            if(!b.length) return a.length;
+            let m = [];
+            for(let i=0; i<=b.length; i++){m[i]=[i];}
+            for(let j=0; j<=a.length; j++){m[0][j]=j;}
+            for(let i=1; i<=b.length; i++) {
+                for(let j=1; j<=a.length; j++) {
+                    m[i][j] = b.charAt(i-1)==a.charAt(j-1) ? m[i-1][j-1] : Math.min(m[i-1][j-1]+1, m[i][j-1]+1, m[i-1][j]+1);
+                }
+            }
+            return m[b.length][a.length];
+        }
+
+        function processResult(inputVal, isGiveUp) {
+            document.getElementById('answer-input').disabled = true;
+            document.getElementById('submit-btn').style.display = 'none';
+            document.getElementById('give-up-btn').style.display = 'none';
+           
+            const feedback = document.getElementById('feedback-area');
+            const qId = currentQuestionObj.id;
+           
+            myHistory[qId].attempts++;
+            let correct = false, close = false;
+
+            if(!isGiveUp) {
+                for(let ans of currentQuestionObj.a) {
+                    if(inputVal === ans) { correct = true; break; }
+                    let dist = getEditDist(inputVal, ans);
+                    if(dist === 1 || (dist === 2 && ans.length > 5)) close = true;
+                }
+            }
+
+            if(correct) {
+                playCorrectSound();
+                myScore += 10;
+                myStreak += 1;
+                myHistory[qId].correct++;
+                myQueue.shift(); // Remove from front of queue permanently
+                feedback.innerHTML = `<span class="text-green-500">✅ Correct! +10 Coins</span>`;
+            } else {
+                playIncorrectSound();
+                myStreak = 0;
+               
+                // Spaced Repetition: Push question back 3 spots
+                myQueue.splice(Math.min(3, myQueue.length), 0, myQueue.shift());
+               
+                const correctAns = currentQuestionObj.a[0]; // Show the primary accepted answer
+               
+                if(isGiveUp) {
+                    feedback.innerHTML = `<span class="text-red-500">❌ Skipped. Answer: <b>${correctAns}</b></span>`;
+                } else if(close) {
+                    feedback.innerHTML = `<span class="text-orange-500">⚠️ Close! Answer: <b>${correctAns}</b></span>`;
+                } else {
+                    feedback.innerHTML = `<span class="text-red-500">❌ Incorrect. Answer: <b>${correctAns}</b></span>`;
+                }
+            }
+
+            updateUI();
+           
+            document.getElementById('next-btn').style.display = 'block';
+            document.getElementById('next-btn').focus();
+        }
+
+        function submitAnswer() {
+            processResult(document.getElementById('answer-input').value.trim().toLowerCase(), false);
+        }
+       
+        function giveUp() {
+            processResult("", true);
+        }
+       
+        function nextQuestion() {
+            loadNextQuestion();
+        }
+       
+        function updateUI() {
+            document.getElementById('player-coins').innerText = myScore;
+            document.getElementById('player-streak').innerText = myStreak;
+        }
+
+        // --- END GAME & ANALYSIS ---
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('view-game').style.display = 'none';
+            document.getElementById('view-end').style.display = 'block';
+            document.getElementById('final-coins').innerText = myScore;
+           
+            playVictoryFanfare();
+           
+            let worstQId = null;
+            let maxWrongs = 0;
+            let totalAtt = 0;
+            let totalWrng = 0;
+           
+            for(let [qId, d] of Object.entries(myHistory)) {
+                totalAtt += d.attempts;
+                let wrongs = d.attempts - d.correct;
+                totalWrng += wrongs;
+                if(wrongs > maxWrongs) {
+                    maxWrongs = wrongs;
+                    worstQId = qId;
+                }
+            }
+
+            const msgEl = document.getElementById('end-game-message');
+           
+            if(totalAtt === 0) {
+                msgEl.innerHTML = "<div class='text-center font-bold'>You didn't answer any questions!</div>";
+            }
+            else if(totalWrng === 0) {
+                if(totalAtt >= questionsDB.length) {
+                    msgEl.innerHTML = `
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🏆</div>
+                            <b class='text-green-600 text-2xl block mb-2'>Perfect Run!</b>
+                            <p>You answered every question without a single mistake. Amazing job!</p>
+                        </div>`;
+                } else {
+                    msgEl.innerHTML = `
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🌟</div>
+                            <b class='text-blue-600 text-2xl block mb-2'>Flawless!</b>
+                            <p>You didn't make any mistakes, but you didn't see all the questions yet. Keep going!</p>
+                        </div>`;
+                }
+            }
+            else {
+                const wQ = questionsDB.find(q => q.id === worstQId);
+                let text = wQ.q.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                msgEl.innerHTML = `
+                    <span class="block text-sm font-black uppercase text-red-500 tracking-wider mb-3">Needs Review (${maxWrongs} misses)</span>
+                    <span class="block text-xl font-bold mb-4">"${text}"</span>
+                    <span class="block text-gray-500 mb-1">The correct answer is:</span>
+                    <span class="block bg-green-100 text-green-800 border border-green-200 px-4 py-2 rounded-lg font-mono text-xl font-bold inline-block">${wQ.a[0]}</span>
+                `;
+            }
+           
+            // Render Math in the end screen if needed
+            if(window.renderMathInElement) {
+                renderMathInElement(msgEl, {
+                    delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+                    throwOnError: false
+                });
+            }
+        }
+    </script>
+</body>
+</html>
